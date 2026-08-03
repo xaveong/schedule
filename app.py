@@ -7,8 +7,8 @@ from supabase import create_client, Client
 # [설정] Supabase 연결 정보 (st.secrets 사용 권장)  
 # =================================================================  
 # Streamlit Cloud 배포 시 Settings -> Secrets에 입력하세요.  
-SUPABASE_URL = st.secrets.get("SUPABASE_URL")  
-SUPABASE_KEY = st.secrets.get("SUPABASE_KEY")
+SUPABASE_URL = st.secrets["supabase_url"]  
+SUPABASE_KEY = st.secrets["supabase_key"] 
 
 @st.cache_resource  
 def init_supabase():  
