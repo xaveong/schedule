@@ -1,6 +1,6 @@
 import streamlit as st  
 import pandas as pd  
-from datetime import datetime, timedelta  
+from datetime import datetime, timedelta, timezone # timezone 추가
 from supabase import create_client, Client
 
 # =================================================================  
