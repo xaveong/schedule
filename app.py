@@ -103,8 +103,8 @@ def schedule_dialog(target_data=None):
 # -----------------------------------------------------------------  
 # 메인 화면 구성  
 # -----------------------------------------------------------------  
-st.set_page_config(page_title="Xave Scheduler", layout="wide")  
-st.title("📅 Xave 일정 관리")
+st.set_page_config(page_title="Xave's Family Scheduler", layout="wide")  
+st.title("📅 Xave's Family Scheduler")
 
 # 상단 컨트롤 바  
 col_view, col_btn = st.columns([4, 1])  
