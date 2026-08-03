@@ -18,8 +18,8 @@ supabase = init_supabase()
 TABLE_NAME = "schedule"
 
 # 기본 설정값  
-AUTHORS = ["작성자A", "작성자B", "작성자C", "Xave"]   
-CATEGORIES = ["약속", "회의", "업무", "개인", "기타"]
+AUTHORS = ["Xave","Tina","Rosa","Jina","Rina"]   
+CATEGORIES = ["약속", "기타"]
 
 # -----------------------------------------------------------------  
 # 데이터 처리 함수  
