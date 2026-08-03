@@ -120,20 +120,26 @@ st.divider()
 df = load_schedules()
 
 if not df.empty:  
-    # 뷰 모드에 따른 필터링 (단순 예시로 현재 날짜 기준)  
-    now = datetime.now()  
+    # 현재 시간을 UTC 시간대로 설정 (핵심!)  
+    now = datetime.now(timezone.utc) 
+    
     if view_mode == "주 단위":  
+        # 시간대 정보가 포함된 start_view 생성  
         start_view = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now.weekday())  
         end_view = start_view + timedelta(days=7)  
+          
+        # 이제 양쪽 모두 UTC이므로 비교 가능합니다.  
         filtered_df = df[(df['start_time'] >= start_view) & (df['start_time'] < end_view)]  
-        st.subheader(f"📅 이번 주 일정 ({start_view.date()} ~ {end_view.date()})")  
+        st.subheader(f"📅 이번 주 일정 ({start_view.date()} ~ {end_view.date()})")
+    
     else:  
+        # 시간대 정보가 포함된 start_view 생성  
         start_view = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)  
-        # 다음달 1일 전날까지  
         next_month = (start_view + timedelta(days=32)).replace(day=1)  
         end_view = next_month  
+          
         filtered_df = df[(df['start_time'] >= start_view) & (df['start_time'] < end_view)]  
-        st.subheader(f"📅 {start_view.strftime('%Y년 %m월')} 일정")
+        st.subheader(f"📅 {start_view.strftime('%Y년 %m월')} 일정")  
 
     # 일정 리스트 표시  
     for _, row in filtered_df.iterrows():  
