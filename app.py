@@ -183,6 +183,7 @@ if not df.empty:
         st.subheader(f"📅 {start_view.strftime('%Y년 %m월')} 일정")  
 
     # 일정 리스트 표시    
+    df = df.sort_values(by='start_time', ascending=False) # start_time으로 desc
     for _, row in filtered_df.iterrows():    
         with st.container():    
             col_info, col_action = st.columns([9, 1])    
