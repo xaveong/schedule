@@ -221,6 +221,33 @@ def schedule_dialog(target_data=None):
             st.rerun()
 
 # -----------------------------------------------------------------
+# Streamlit query-param 호환성 래퍼 (호환성 문제로 인한 AttributeError 방지)
+# -----------------------------------------------------------------
+def get_query_params_safe():
+    """가능한 query-get API를 사용해 파라미터를 얻고, 없으면 빈 dict 반환."""
+    try:
+        if hasattr(st, "experimental_get_query_params"):
+            return st.experimental_get_query_params()
+        if hasattr(st, "get_query_params"):
+            return st.get_query_params()
+    except Exception:
+        pass
+    return {}
+
+def clear_query_params_safe():
+    """가능한 query-set API를 사용해 파라미터를 지움(없으면 무시)."""
+    try:
+        if hasattr(st, "experimental_set_query_params"):
+            st.experimental_set_query_params()
+            return
+        if hasattr(st, "set_query_params"):
+            st.set_query_params()
+            return
+    except Exception:
+        pass
+    # 아무 것도 못하면 그냥 무시
+
+# -----------------------------------------------------------------
 # 메인 화면 (월 달력 전용)
 # -----------------------------------------------------------------
 st.set_page_config(page_title="Xave's Family Scheduler", layout="wide")
@@ -302,7 +329,7 @@ st.divider()
 df = load_schedules()
 
 # 편집 쿼리 파라미터 처리: ?edit_id=<id>
-query_params = st.experimental_get_query_params()
+query_params = get_query_params_safe()
 if "edit_id" in query_params and query_params["edit_id"]:
     edit_id_val = query_params["edit_id"][0]
     # find event in df (cast id to str for matching)
@@ -321,7 +348,7 @@ if "edit_id" in query_params and query_params["edit_id"]:
                         pass
             schedule_dialog(row)
     # clear the param to avoid re-opening repeatedly
-    st.experimental_set_query_params()
+    clear_query_params_safe()
 
 # 달력 렌더링
 year = st.session_state.cal_year
@@ -380,4 +407,4 @@ for week in month_weeks:
                             st.rerun()
 
 st.divider()
-st.caption("참고: 일정 항목은 '종류 | 작성자' 텍스트로 표시됩니다. 텍스트 클릭하면 수정(모달)이 열리고, 삭제는 우측 아이콘으로 가능합니다. 색상 저장은 사이드바에서 가능합니다.")
+st.caption("참고: 일정 항목은 '종류 | 작성자' 텍스트로 표시됩니다. 텍스트 클릭하면 수정(모달)이 열리고, 삭제는 우측 아이콘으로 가능합니다. 색상 저장은 사이드바에서 수행하세요.")
