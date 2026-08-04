@@ -194,7 +194,7 @@ if not df.empty:
             with col_info:    
                 with st.expander(f"🕒 {time_range} | {summary_text}"):    
                     st.markdown(f"**종류:** {row['category']} | **작성자:** {row['author']}")    
-                    st.markdown(f"**기간:** {row['start_time']} $\rightarrow$ {row['end_time']}")    
+                    st.markdown(f"**기간:** {row['start_time']} ~ {row['end_time']}")    
                     st.write(f"**내용:**\n{row['content']}")    
                         
                     c1, c2 = st.columns(2)    
