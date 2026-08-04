@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime, timezone, date
 from supabase import create_client
 import calendar
+import html
 
 # =================================================================
 # [설정] Supabase 연결 정보 (st.secrets 사용 권장)
@@ -21,7 +22,7 @@ TABLE_NAME = "schedule"
 AUTHORS = ["Xave","Tina","Rosa","Jina","Rina"]
 CATEGORIES = ["약속", "기타"]
 
-# 기본 색상 (DB 마이그레이션에서 기본값으로 넣는 값과 동일)
+# 기본 색상 (DB 마이그레이션에서 동일한 기본값을 넣어두세요)
 DEFAULT_CATEGORY_COLORS = {
     "약속": "#FF8A65",
     "기타": "#90CAF9",
@@ -288,7 +289,6 @@ with col_nav_mid:
     # 중앙 컨트롤에 바로 session_state 키를 바인딩하면 prev/next에서 변경 시 자동 반영됩니다.
     year = st.number_input("연도", min_value=1970, max_value=2100, value=st.session_state.cal_year, key="cal_year")
     month = st.selectbox("월", list(range(1,13)), index=st.session_state.cal_month-1, key="cal_month")
-    # number_input/selectbox는 값 변경 시 session_state가 갱신됩니다.
 with col_nav_next:
     st.button("다음 달 ▶", on_click=next_month)
 
@@ -300,6 +300,28 @@ st.divider()
 
 # 일정 로드
 df = load_schedules()
+
+# 편집 쿼리 파라미터 처리: ?edit_id=<id>
+query_params = st.experimental_get_query_params()
+if "edit_id" in query_params and query_params["edit_id"]:
+    edit_id_val = query_params["edit_id"][0]
+    # find event in df (cast id to str for matching)
+    if not df.empty:
+        match = df[df['id'].astype(str) == str(edit_id_val)]
+        if not match.empty:
+            # take first match and open dialog
+            row = match.iloc[0].to_dict()
+            # convert Timestamp to python datetime for schedule_dialog expectations
+            for k in ("start_time", "end_time"):
+                if k in row and pd.notna(row[k]):
+                    # pandas Timestamp -> python datetime
+                    try:
+                        row[k] = pd.to_datetime(row[k]).to_pydatetime()
+                    except Exception:
+                        pass
+            schedule_dialog(row)
+    # clear the param to avoid re-opening repeatedly
+    st.experimental_set_query_params()
 
 # 달력 렌더링
 year = st.session_state.cal_year
@@ -332,38 +354,30 @@ for week in month_weeks:
             if day_events.empty:
                 continue
             day_events = day_events.sort_values(by='start_time')
-            # compact 표시: 각 이벤트는 종류|작성자만 표시(공간 확보)
+            # 각 이벤트를 한 줄씩 표시 (간결하게), 텍스트 색으로 category/author를 표시
             for idx_local, (idx, ev) in enumerate(day_events.iterrows()):
                 ev_id = ev.get('id', f"{idx}_{day}")
                 cat = ev.get('category', CATEGORIES[0])
                 auth = ev.get('author', AUTHORS[0])
-                cat_col = category_colors.get(cat, DEFAULT_CATEGORY_COLORS.get(cat, "#cccccc"))
-                auth_col = author_colors.get(auth, DEFAULT_AUTHOR_COLORS.get(auth, "#888888"))
-                bg = blend_colors(cat_col, auth_col, ratio=0.65)
-                fg = text_color_for_bg(bg)
-                # 간결한 표시 (시간/내용 제외)
-                label_text = f"{cat} | {auth}"
-                # 가능한 한 컴팩트하게 스타일링
-                badge_html = f"""
-                <div style="background:{bg};color:{fg};padding:4px 6px;border-radius:5px;margin-bottom:4px;font-size:12px;line-height:14px;">
-                    <span style="font-weight:600;">{label_text}</span>
-                </div>
-                """
-                # 한 줄에 (배지 영역 | 편집 버튼 | 삭제 버튼)
-                c_evt, c_edit, c_del = st.columns([8,0.7,0.7])
-                with c_evt:
-                    st.markdown(badge_html, unsafe_allow_html=True)
-                # 고유 키: ev_id + day + idx_local
-                edit_key = f"edit_{ev_id}_{day}_{idx_local}"
+                cat_col = category_colors.get(cat, DEFAULT_CATEGORY_COLORS.get(cat, "#000000"))
+                auth_col = author_colors.get(auth, DEFAULT_AUTHOR_COLORS.get(auth, "#000000"))
+                # 라벨 HTML: 종류(카테고리 컬러) | 작성자(작성자 컬러)
+                escaped_cat = html.escape(str(cat))
+                escaped_auth = html.escape(str(auth))
+                label_html = (f'<span style="color:{cat_col};font-weight:600;">{escaped_cat}</span>'
+                              f' <span style="color:#888888;">|</span> '
+                              f'<span style="color:{auth_col};">{escaped_auth}</span>')
+                # 링크로 감싸서 클릭시 ?edit_id=<id> 로 이동 -> 페이지 로드 시 dialog 오픈
+                label_link = f'<a href="?edit_id={html.escape(str(ev_id))}" style="text-decoration:none;">{label_html}</a>'
+                # 한 줄에 (라벨(링크) | 삭제 버튼)
+                c_label, c_del = st.columns([9,1])
+                with c_label:
+                    st.markdown(label_link, unsafe_allow_html=True)
                 del_key = f"del_{ev_id}_{day}_{idx_local}"
-                # 버튼은 아이콘(짧은 레이블)만 표시하여 텍스트 크기와 유사하게 보이도록 배치
-                with c_edit:
-                    if st.button("✏️", key=edit_key):
-                        schedule_dialog(ev)
                 with c_del:
                     if st.button("🗑️", key=del_key):
                         if delete_schedule(ev.get('id')):
                             st.rerun()
 
 st.divider()
-st.caption("참고: 일정 항목은 '종류 | 작성자'만 간략히 표시됩니다. 편집/삭제는 아이콘 버튼을 사용하세요. 색상 저장은 사이드바에서 가능합니다.")
+st.caption("참고: 일정 항목은 '종류 | 작성자' 텍스트로 표시됩니다. 텍스트 클릭하면 수정(모달)이 열리고, 삭제는 우측 아이콘으로 가능합니다. 색상 저장은 사이드바에서 가능합니다.")
