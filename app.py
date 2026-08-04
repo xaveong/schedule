@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta, timezone, date
+from datetime import datetime, timezone, date
 from supabase import create_client
 import calendar
 
@@ -21,7 +21,7 @@ TABLE_NAME = "schedule"
 AUTHORS = ["Xave","Tina","Rosa","Jina","Rina"]
 CATEGORIES = ["약속", "기타"]
 
-# 기본 색상 (마이그레이션으로 DB에 넣을 기본값)
+# 기본 색상 (DB 마이그레이션에서 기본값으로 넣는 값과 동일)
 DEFAULT_CATEGORY_COLORS = {
     "약속": "#FF8A65",
     "기타": "#90CAF9",
@@ -140,13 +140,20 @@ def delete_schedule(post_id):
         return False
 
 # -----------------------------------------------------------------
-# 일정 입력/수정 Dialog (기존 동작 유지)
+# 일정 입력/수정 Dialog
 # -----------------------------------------------------------------
 @st.dialog("일정 입력 및 수정")
 def schedule_dialog(target_data=None):
     is_edit = target_data is not None
     title = "일정 수정하기" if is_edit else "새 일정 등록하기"
     st.subheader(title)
+
+    # 안전하게 인덱스 계산 (값이 목록에 없을 수 있음)
+    def safe_index(lst, val, default=0):
+        try:
+            return lst.index(val)
+        except Exception:
+            return default
 
     if "dialog_data" not in st.session_state or is_edit:
         if is_edit:
@@ -170,8 +177,8 @@ def schedule_dialog(target_data=None):
                 "content": ""
             }
 
-    category = st.selectbox("종류", CATEGORIES, index=CATEGORIES.index(st.session_state.dialog_data["category"]))
-    author = st.selectbox("작성자", AUTHORS, index=AUTHORS.index(st.session_state.dialog_data["author"]))
+    category = st.selectbox("종류", CATEGORIES, index=safe_index(CATEGORIES, st.session_state.dialog_data["category"]))
+    author = st.selectbox("작성자", AUTHORS, index=safe_index(AUTHORS, st.session_state.dialog_data["author"]))
 
     col1, col2 = st.columns(2)
     with col1:
@@ -249,41 +256,41 @@ if st.sidebar.button("색상 저장 (DB에 반영)"):
 st.sidebar.divider()
 st.sidebar.markdown("DB에 테이블이 없으면 제공된 SQL을 Supabase SQL 에디터에서 실행하세요.")
 
-# 상단: 년/월 선택 (이전 / 다음 버튼)
+# 상단: 년/월 선택 (이전 / 중앙 입력 / 다음)
 today = datetime.now().date()
 if "cal_year" not in st.session_state:
     st.session_state.cal_year = today.year
 if "cal_month" not in st.session_state:
     st.session_state.cal_month = today.month
 
+def prev_month():
+    y = st.session_state["cal_year"]
+    m = st.session_state["cal_month"]
+    if m == 1:
+        st.session_state["cal_year"] = y - 1
+        st.session_state["cal_month"] = 12
+    else:
+        st.session_state["cal_month"] = m - 1
+
+def next_month():
+    y = st.session_state["cal_year"]
+    m = st.session_state["cal_month"]
+    if m == 12:
+        st.session_state["cal_year"] = y + 1
+        st.session_state["cal_month"] = 1
+    else:
+        st.session_state["cal_month"] = m + 1
+
 col_nav_prev, col_nav_mid, col_nav_next = st.columns([1,6,1])
 with col_nav_prev:
-    if st.button("◀ 이전 달"):
-        y, m = st.session_state.cal_year, st.session_state.cal_month
-        if m == 1:
-            st.session_state.cal_year -= 1
-            st.session_state.cal_month = 12
-        else:
-            st.session_state.cal_month -= 1
-        st.rerun()
+    st.button("◀ 이전 달", on_click=prev_month)
 with col_nav_mid:
-    # 중앙에 년/월 컨트롤
-    col_year, col_month = st.columns([1,1])
-    with col_year:
-        year = st.number_input("연도", min_value=1970, max_value=2100, value=st.session_state.cal_year, key="sel_year")
-        st.session_state.cal_year = int(year)
-    with col_month:
-        month = st.selectbox("월", list(range(1,13)), index=st.session_state.cal_month-1, key="sel_month")
-        st.session_state.cal_month = int(month)
+    # 중앙 컨트롤에 바로 session_state 키를 바인딩하면 prev/next에서 변경 시 자동 반영됩니다.
+    year = st.number_input("연도", min_value=1970, max_value=2100, value=st.session_state.cal_year, key="cal_year")
+    month = st.selectbox("월", list(range(1,13)), index=st.session_state.cal_month-1, key="cal_month")
+    # number_input/selectbox는 값 변경 시 session_state가 갱신됩니다.
 with col_nav_next:
-    if st.button("다음 달 ▶"):
-        y, m = st.session_state.cal_year, st.session_state.cal_month
-        if m == 12:
-            st.session_state.cal_year += 1
-            st.session_state.cal_month = 1
-        else:
-            st.session_state.cal_month += 1
-        st.rerun()
+    st.button("다음 달 ▶", on_click=next_month)
 
 # 일정 추가
 if st.button("➕ 일정 추가", type="primary"):
@@ -301,12 +308,14 @@ st.subheader(f"📅 {year}년 {month}월 달력")
 cal = calendar.Calendar(firstweekday=0)  # Monday=0
 month_weeks = cal.monthdayscalendar(year, month)
 
+# 헤더
 weekdays = ["월","화","수","목","금","토","일"]
 hd_cols = st.columns(7)
 for i, dname in enumerate(weekdays):
     with hd_cols[i]:
         st.markdown(f"**{dname}**")
 
+# 칸 채우기
 for week in month_weeks:
     cols = st.columns(7)
     for i, day in enumerate(week):
@@ -323,7 +332,7 @@ for week in month_weeks:
             if day_events.empty:
                 continue
             day_events = day_events.sort_values(by='start_time')
-            # 각 이벤트를 별도의 행(컬럼 블록)으로 렌더링하여 여러 개가 모두 보이도록 함
+            # compact 표시: 각 이벤트는 종류|작성자만 표시(공간 확보)
             for idx_local, (idx, ev) in enumerate(day_events.iterrows()):
                 ev_id = ev.get('id', f"{idx}_{day}")
                 cat = ev.get('category', CATEGORIES[0])
@@ -332,25 +341,22 @@ for week in month_weeks:
                 auth_col = author_colors.get(auth, DEFAULT_AUTHOR_COLORS.get(auth, "#888888"))
                 bg = blend_colors(cat_col, auth_col, ratio=0.65)
                 fg = text_color_for_bg(bg)
-                try:
-                    time_str = ev['start_time'].astimezone(timezone.utc).strftime("%H:%M")
-                except Exception:
-                    time_str = ev['start_time'].strftime("%H:%M") if not pd.isna(ev['start_time']) else ""
-                summary = ev['content'] if isinstance(ev.get('content'), str) else ""
-                summary_short = summary if len(summary) <= 30 else summary[:27] + "..."
-                # 한 줄에 (내용 영역 | 편집 버튼 | 삭제 버튼)
-                c_evt, c_edit, c_del = st.columns([9,1,1])
+                # 간결한 표시 (시간/내용 제외)
+                label_text = f"{cat} | {auth}"
+                # 가능한 한 컴팩트하게 스타일링
+                badge_html = f"""
+                <div style="background:{bg};color:{fg};padding:4px 6px;border-radius:5px;margin-bottom:4px;font-size:12px;line-height:14px;">
+                    <span style="font-weight:600;">{label_text}</span>
+                </div>
+                """
+                # 한 줄에 (배지 영역 | 편집 버튼 | 삭제 버튼)
+                c_evt, c_edit, c_del = st.columns([8,0.7,0.7])
                 with c_evt:
-                    badge_html = f"""
-                    <div style="background:{bg};color:{fg};padding:6px;border-radius:6px;margin-bottom:6px;">
-                        <div style="font-size:12px;font-weight:600;">{time_str} {ev.get('author','')} | {ev.get('category','')}</div>
-                        <div style="font-size:12px;">{summary_short}</div>
-                    </div>
-                    """
                     st.markdown(badge_html, unsafe_allow_html=True)
-                # 고유한 키를 보장: ev_id, day, idx_local 조합
+                # 고유 키: ev_id + day + idx_local
                 edit_key = f"edit_{ev_id}_{day}_{idx_local}"
                 del_key = f"del_{ev_id}_{day}_{idx_local}"
+                # 버튼은 아이콘(짧은 레이블)만 표시하여 텍스트 크기와 유사하게 보이도록 배치
                 with c_edit:
                     if st.button("✏️", key=edit_key):
                         schedule_dialog(ev)
@@ -360,4 +366,4 @@ for week in month_weeks:
                             st.rerun()
 
 st.divider()
-st.caption("참고: 색상 설정은 '색상 저장 (DB에 반영)'을 누르면 category_colors/author_colors 테이블에 저장됩니다.")
+st.caption("참고: 일정 항목은 '종류 | 작성자'만 간략히 표시됩니다. 편집/삭제는 아이콘 버튼을 사용하세요. 색상 저장은 사이드바에서 가능합니다.")
