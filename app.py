@@ -1,3 +1,4 @@
+# app.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timezone, date
@@ -59,6 +60,19 @@ def blend_colors(hex1: str, hex2: str, ratio=0.65):
     g = int(g1*ratio + g2*(1-ratio))
     b = int(b1*ratio + b2*(1-ratio))
     return f"#{r:02x}{g:02x}{b:02x}"
+
+def ev_series_to_dialog_dict(ev_series):
+    """DataFrame row(Series) -> dict for schedule_dialog: ensure start_time/end_time are python datetimes."""
+    ev = ev_series.to_dict()
+    for k in ("start_time", "end_time"):
+        if k in ev and pd.notna(ev[k]):
+            try:
+                # pandas.Timestamp -> python datetime (preserve tz if present)
+                ev[k] = pd.to_datetime(ev[k]).to_pydatetime()
+            except Exception:
+                # leave as-is if conversion fails
+                pass
+    return ev
 
 # -----------------------------------------------------------------
 # DB 색상 매핑 로드 / 저장 함수
@@ -224,7 +238,6 @@ def schedule_dialog(target_data=None):
 # Streamlit query-param 호환성 래퍼 (호환성 문제로 인한 AttributeError 방지)
 # -----------------------------------------------------------------
 def get_query_params_safe():
-    """가능한 query-get API를 사용해 파라미터를 얻고, 없으면 빈 dict 반환."""
     try:
         if hasattr(st, "experimental_get_query_params"):
             return st.experimental_get_query_params()
@@ -235,7 +248,6 @@ def get_query_params_safe():
     return {}
 
 def clear_query_params_safe():
-    """가능한 query-set API를 사용해 파라미터를 지움(없으면 무시)."""
     try:
         if hasattr(st, "experimental_set_query_params"):
             st.experimental_set_query_params()
@@ -245,7 +257,6 @@ def clear_query_params_safe():
             return
     except Exception:
         pass
-    # 아무 것도 못하면 그냥 무시
 
 # -----------------------------------------------------------------
 # 메인 화면 (월 달력 전용)
@@ -313,7 +324,6 @@ col_nav_prev, col_nav_mid, col_nav_next = st.columns([1,6,1])
 with col_nav_prev:
     st.button("◀ 이전 달", on_click=prev_month)
 with col_nav_mid:
-    # 중앙 컨트롤에 바로 session_state 키를 바인딩하면 prev/next에서 변경 시 자동 반영됩니다.
     year = st.number_input("연도", min_value=1970, max_value=2100, value=st.session_state.cal_year, key="cal_year")
     month = st.selectbox("월", list(range(1,13)), index=st.session_state.cal_month-1, key="cal_month")
 with col_nav_next:
@@ -328,26 +338,15 @@ st.divider()
 # 일정 로드
 df = load_schedules()
 
-# 편집 쿼리 파라미터 처리: ?edit_id=<id>
+# 편집 쿼리 파라미터 처리: ?edit_id=<id>  (호환성 유지)
 query_params = get_query_params_safe()
 if "edit_id" in query_params and query_params["edit_id"]:
     edit_id_val = query_params["edit_id"][0]
-    # find event in df (cast id to str for matching)
     if not df.empty:
         match = df[df['id'].astype(str) == str(edit_id_val)]
         if not match.empty:
-            # take first match and open dialog
-            row = match.iloc[0].to_dict()
-            # convert Timestamp to python datetime for schedule_dialog expectations
-            for k in ("start_time", "end_time"):
-                if k in row and pd.notna(row[k]):
-                    # pandas Timestamp -> python datetime
-                    try:
-                        row[k] = pd.to_datetime(row[k]).to_pydatetime()
-                    except Exception:
-                        pass
-            schedule_dialog(row)
-    # clear the param to avoid re-opening repeatedly
+            row = match.iloc[0]
+            schedule_dialog(ev_series_to_dialog_dict(row))
     clear_query_params_safe()
 
 # 달력 렌더링
@@ -381,25 +380,47 @@ for week in month_weeks:
             if day_events.empty:
                 continue
             day_events = day_events.sort_values(by='start_time')
-            # 각 이벤트를 한 줄씩 표시 (간결하게), 텍스트 색으로 category/author를 표시
+            # 각 이벤트를 한 줄씩 표시: [색 배지][텍스트 버튼(클릭 시 수정)] [✏️] [🗑️]
             for idx_local, (idx, ev) in enumerate(day_events.iterrows()):
-                ev_id = ev.get('id', f"{idx}_{day}")
+                ev_id = ev.get('id', f"{idx}_{day}_{idx_local}")
                 cat = ev.get('category', CATEGORIES[0])
                 auth = ev.get('author', AUTHORS[0])
                 cat_col = category_colors.get(cat, DEFAULT_CATEGORY_COLORS.get(cat, "#000000"))
                 auth_col = author_colors.get(auth, DEFAULT_AUTHOR_COLORS.get(auth, "#000000"))
-                # 라벨 HTML: 종류(카테고리 컬러) | 작성자(작성자 컬러)
-                escaped_cat = html.escape(str(cat))
-                escaped_auth = html.escape(str(auth))
-                label_html = (f'<span style="color:{cat_col};font-weight:600;">{escaped_cat}</span>'
-                              f' <span style="color:#888888;">|</span> '
-                              f'<span style="color:{auth_col};">{escaped_auth}</span>')
-                # 링크로 감싸서 클릭시 ?edit_id=<id> 로 이동 -> 페이지 로드 시 dialog 오픈
-                label_link = f'<a href="?edit_id={html.escape(str(ev_id))}" style="text-decoration:none;">{label_html}</a>'
-                # 한 줄에 (라벨(링크) | 삭제 버튼)
-                c_label, c_del = st.columns([9,1])
+                # blended background for small badge
+                bg = blend_colors(cat_col, auth_col, ratio=0.65)
+                fg = text_color_for_bg(bg)
+                # time and summary
+                try:
+                    # display local time (if tz-aware)
+                    time_str = ev['start_time'].astimezone(timezone.utc).strftime("%H:%M")
+                except Exception:
+                    time_str = ev['start_time'].strftime("%H:%M") if not pd.isna(ev['start_time']) else ""
+                summary = ev.get('content', "") or ""
+                summary_short = summary if len(summary) <= 28 else summary[:25] + "..."
+                # layout: badge(0.7) | label button(7) | edit(0.6) | del(0.6)
+                # badge: small colored square with category abbreviated
+                c_badge, c_label, c_edit, c_del = st.columns([0.7, 7, 0.6, 0.6])
+                with c_badge:
+                    badge_html = f"""
+                        <div title="{html.escape(cat)} / {html.escape(auth)}"
+                             style="background:{bg};color:{fg};width:18px;height:18px;border-radius:4px;margin:0px;"></div>
+                    """
+                    st.markdown(badge_html, unsafe_allow_html=True)
+                # prepare dialog payload
+                dialog_payload = ev_series_to_dialog_dict(ev)
+                # label button: clicking opens schedule_dialog (modal)
+                label_key = f"label_{ev_id}_{day}_{idx_local}"
                 with c_label:
-                    st.markdown(label_link, unsafe_allow_html=True)
+                    label_text = f"{time_str} {summary_short}  •  {cat} | {auth}"
+                    if st.button(label_text, key=label_key):
+                        schedule_dialog(dialog_payload)
+                # edit button (redundant but convenient)
+                edit_key = f"edit_{ev_id}_{day}_{idx_local}"
+                with c_edit:
+                    if st.button("✏️", key=edit_key):
+                        schedule_dialog(dialog_payload)
+                # delete button
                 del_key = f"del_{ev_id}_{day}_{idx_local}"
                 with c_del:
                     if st.button("🗑️", key=del_key):
@@ -407,4 +428,4 @@ for week in month_weeks:
                             st.rerun()
 
 st.divider()
-st.caption("참고: 일정 항목은 '종류 | 작성자' 텍스트로 표시됩니다. 텍스트 클릭하면 수정(모달)이 열리고, 삭제는 우측 아이콘으로 가능합니다. 색상 저장은 사이드바에서 수행하세요.")
+st.caption("참고: 일정 항목을 클릭하면 모달 편집창이 열립니다. 편집/삭제 버튼은 일정 레이블 옆에 바로 표시됩니다. 색상 저장은 사이드바에서 수행하세요.")
