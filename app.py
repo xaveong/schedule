@@ -189,7 +189,7 @@ if not df.empty:
                 
             # 표시용 텍스트 구성    
             time_range = f"{row['start_time'].strftime('%m/%d %H:%M')} ~ {row['end_time'].strftime('%m/%d %H:%M')}"    
-            summary_text = f"[{row['category']}] {row['author']} : {row['content'][:20]}..."    
+            summary_text = f"[{row['author']}] {row['category']} : {row['content'][:20]}..."    
                 
             with col_info:    
                 with st.expander(f"🕒 {time_range} | {summary_text}"):    
