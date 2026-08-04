@@ -30,8 +30,9 @@ def load_schedules():
         response = supabase.table(TABLE_NAME).select("*").order("start_time").execute()    
         df = pd.DataFrame(response.data)    
         if not df.empty:    
-            df['start_time'] = pd.to_datetime(df['start_time'])    
-            df['end_time'] = pd.to_datetime(df['end_time'])    
+            # format='ISO8601'을 추가하여 다양한 ISO 형식의 날짜 문자열을 모두 처리합니다.  
+            df['start_time'] = pd.to_datetime(df['start_time'], format='ISO8601')    
+            df['end_time'] = pd.to_datetime(df['end_time'], format='ISO8601')  
         return df    
     except Exception as e:    
         st.error(f"데이터 로드 중 오류: {e}")    
