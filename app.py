@@ -237,7 +237,7 @@ if st.button("➕ 새 일정 추가", type="primary", use_container_width=True):
 
 st.divider()
 
-# 달력 렌더링  
+# 달력 렌더링 부분  
 df = load_schedules()  
 year, month = st.session_state.cal_year, st.session_state.cal_month  
 cal = calendar.Calendar(firstweekday=0)  
@@ -257,26 +257,46 @@ for week in month_weeks:
             cell_date = date(year, month, day)  
               
             if not df.empty:  
+                # 해당 날짜의 일정 필터링 및 시간순 정렬  
                 day_events = df[(df['start_date'] <= cell_date) & (df['end_date'] >= cell_date)].sort_values(by='start_time')  
+                  
                 for idx_local, (idx, ev) in enumerate(day_events.iterrows()):  
                     cat = ev.get('category', CATEGORIES[0])  
                     auth = ev.get('author', AUTHORS[0])  
-                    bg = blend_colors(category_colors.get(cat), author_colors.get(auth))  
-                    fg = text_color_for_bg(bg)  
+                      
+                    # 설정된 색상 가져오기  
+                    cat_col = category_colors.get(cat, "#000000")  
+                    auth_col = author_colors.get(auth, "#000000")  
                       
                     try:  
                         time_str = ev['start_time'].astimezone(timezone.utc).strftime("%H:%M")  
                     except:  
                         time_str = ev['start_time'].strftime("%H:%M") if not pd.isna(ev['start_time']) else ""
 
-                    # 요청 반영: [배지][시간 종류|작성자] 형태로 구성, 버튼 하나로 통합  
-                    c_badge, c_label = st.columns([0.5, 9.5])  
-                    with c_badge:  
-                        st.markdown(f'<div style="background:{bg};width:12px;height:12px;border-radius:2px;"></div>', unsafe_allow_html=True)  
-                    with c_label:  
-                        label_text = f"{time_str} {cat}|{auth}"  
-                        if st.button(label_text, key=f"ev_{ev.get('id')}_{day}_{idx_local}", use_container_width=True):  
-                            schedule_dialog(ev_series_to_dialog_dict(ev))
+                    # [개선] 텍스트 컬러 적용을 위한 HTML 스타일 버튼  
+                    # Streamlit 버튼은 색상 변경이 안되므로,   
+                    # HTML/CSS를 사용하여 버튼처럼 보이게 하고,   
+                    # st.button의 key를 활용해 클릭 이벤트를 처리합니다.  
+                      
+                    # 텍스트 레이블 생성: 시간 (종류색|작성자색)  
+                    label_html = f"""  
+                        <div style="margin-bottom: 2px; font-size: 0.85rem; line-height: 1.2;">  
+                            <span style="color: #666;">{time_str}</span>   
+                            <span style="color: {cat_col}; font-weight: bold;">{cat}</span>|  
+                            <span style="color: {auth_col}; font-weight: bold;">{auth}</span>  
+                        </div>  
+                    """  
+                    st.markdown(label_html, unsafe_allow_html=True)  
+                      
+                    # 클릭 시 다이얼로그를 띄우기 위한 투명 버튼 (텍스트 바로 아래 배치)  
+                    if st.button(f" Details", key=f"btn_{ev.get('id')}_{day}_{idx_local}",   
+                                 help="상세보기 및 수정",   
+                                 use_container_width=True,  
+                                 type="secondary"):  
+                        schedule_dialog(ev_series_to_dialog_dict(ev))  
+                      
+                    # 일정 간 구분을 위한 작은 공백  
+                    st.markdown("<br>", unsafe_allow_html=True)
 
 st.divider()  
-st.caption("💡 일정 항목을 클릭하면 상세 내용을 확인하고 수정하거나 삭제할 수 있습니다.")  
+st.caption("💡 'Details' 버튼을 클릭하면 상세 내용을 확인하고 수정하거나 삭제할 수 있습니다.")  
