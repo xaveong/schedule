@@ -201,6 +201,20 @@ if not df.empty:
             schedules_by_day[day].append(row)
             item_by_id[str(row['id'])] = row
 
+# 일정 검색/수정용 선택 박스 (클릭 대신 선택해서 수정)
+if not df.empty:
+    with st.expander("🔍 일정 상세 보기 / 수정 / 삭제"):
+        month_items = [f"[{row['start_time'].strftime('%m/%d %H:%M')}] {row['author']} - {row['content']}" for _, row in df.iterrows() if row['start_time'].year == selected_year and row['start_time'].month == selected_month]
+        if month_items:
+            selected_item_str = st.selectbox("일정 선택", month_items)
+            if selected_item_str:
+                # 선택된 일정 id 찾기
+                for _, row in df.iterrows():
+                    match_str = f"[{row['start_time'].strftime('%m/%d %H:%M')}] {row['author']} - {row['content']}"
+                    if match_str == selected_item_str:
+                        if st.button("✏️ 이 일정 수정 / 삭제하기", use_container_width=True):
+                            schedule_dialog(row)
+                        break
 # ================================================================= 
 # 6. 순수 HTML/Grid 기반 노스크롤 달력 렌더링
 # ================================================================= 
@@ -303,19 +317,6 @@ html_code += "</tbody></table>"
 # 화면에 통째로 렌더링 (스크롤 없음)
 st.html(html_code)
 
-# 하단 일정 검색/수정용 선택 박스 (클릭 대신 선택해서 수정)
-if not df.empty:
-    with st.expander("🔍 일정 상세 보기 / 수정 / 삭제"):
-        month_items = [f"[{row['start_time'].strftime('%m/%d %H:%M')}] {row['author']} - {row['content']}" for _, row in df.iterrows() if row['start_time'].year == selected_year and row['start_time'].month == selected_month]
-        if month_items:
-            selected_item_str = st.selectbox("일정 선택", month_items)
-            if selected_item_str:
-                # 선택된 일정 id 찾기
-                for _, row in df.iterrows():
-                    match_str = f"[{row['start_time'].strftime('%m/%d %H:%M')}] {row['author']} - {row['content']}"
-                    if match_str == selected_item_str:
-                        if st.button("✏️ 이 일정 수정 / 삭제하기", use_container_width=True):
-                            schedule_dialog(row)
-                        break
+
         else:
             st.write("이번 달에 등록된 일정이 없습니다.")
