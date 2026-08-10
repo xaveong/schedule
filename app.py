@@ -215,6 +215,9 @@ if not df.empty:
                         if st.button("✏️ 이 일정 수정 / 삭제하기", use_container_width=True):
                             schedule_dialog(row)
                         break
+
+        else:
+            st.write("이번 달에 등록된 일정이 없습니다.")                        
 # ================================================================= 
 # 6. 순수 HTML/Grid 기반 노스크롤 달력 렌더링
 # ================================================================= 
@@ -318,5 +321,3 @@ html_code += "</tbody></table>"
 st.html(html_code)
 
 
-        else:
-            st.write("이번 달에 등록된 일정이 없습니다.")
