@@ -85,20 +85,25 @@ def delete_schedule(post_id):
         return False
 
 # ================================================================= 
-# 4. UI 커스텀 CSS (모바일 강제 가로 달력 레이아웃 보장)
+# 4. UI 커스텀 CSS (한 화면 한눈에 보이도록 여백/높이 극한 최적화)
 # ================================================================= 
 st.markdown("""
     <style>
-    /* 1. 모바일 전체 화면 여백 최소화 */
+    /* 1. 상단 타이틀 및 전체 화면 패딩 극한 압축 */
     .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 1rem !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
         padding-left: 0.2rem !important;
         padding-right: 0.2rem !important;
         max-width: 100% !important;
     }
 
-    /* 2. Streamlit이 컬럼을 세로로 쌓지 못하도록 강제 가로(Row) 고정 */
+    /* Streamlit 기본 divider 및 간격 줄이기 */
+    hr {
+        margin: 0.3rem 0 !important;
+    }
+
+    /* 2. 가로 7열 강제 유지를 위한 Flex 설정 */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -107,7 +112,7 @@ st.markdown("""
         width: 100% !important;
     }
 
-    /* 3. 7개 컬럼 너비를 정확히 1/7로 균등 분할 */
+    /* 3. 7개 컬럼 너비 1/7 정확히 고정 */
     [data-testid="column"] {
         width: calc(100% / 7) !important;
         min-width: calc(100% / 7) !important;
@@ -116,50 +121,50 @@ st.markdown("""
         padding: 0px !important;
     }
 
-    /* 4. 날짜 카드 컨테이너 여백/패딩 최소화 */
+    /* 4. st.container(border=True) 내부 여백 극한으로 줄이기 */
     [data-testid="stVerticalBlockBorderWrapper"] {
         padding: 1px !important;
     }
-    [data-testid="stVerticalBlock"] {
-        gap: 2px !important;
+    div[data-testid="stVerticalBlock"] {
+        gap: 1px !important;
     }
 
     /* 5. 요일 헤더 */
     .weekday-header {
         text-align: center;
         font-weight: bold;
-        padding: 4px 0px;
+        padding: 2px 0px;
         background-color: #f1f3f5;
-        border-radius: 3px;
-        font-size: 11px;
-        margin-bottom: 2px;
+        border-radius: 2px;
+        font-size: 10px;
+        margin-bottom: 1px;
         border: 1px solid #dee2e6;
     }
 
     /* 6. 날짜 숫자 스타일 */
     .day-num {
         font-weight: bold;
-        font-size: 11px;
-        margin-bottom: 2px;
+        font-size: 10px;
+        margin-bottom: 1px;
         color: #333;
-        line-height: 1.1;
+        line-height: 1.0;
     }
     .today-num {
         color: #1c7ed6 !important;
         font-weight: 900;
     }
 
-    /* 7. popover (일정) 버튼 컴팩트화 */
+    /* 7. popover 일정 버튼 슬림화 (한 줄 넘침 방지) */
     div[data-testid="stPopover"] {
         width: 100% !important;
     }
     div[data-testid="stPopover"] > button {
-        padding: 1px 2px !important;
-        font-size: 9px !important;
+        padding: 0px 1px !important;
+        font-size: 8px !important;
         line-height: 1.1 !important;
-        min-height: 18px !important;
-        height: auto !important;
-        margin-bottom: 2px !important;
+        min-height: 16px !important;
+        height: 16px !important;
+        margin-bottom: 1px !important;
         width: 100% !important;
         text-align: left !important;
         border: 1px solid #e0e0e0 !important;
@@ -167,27 +172,18 @@ st.markdown("""
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
-        border-radius: 3px !important;
+        border-radius: 2px !important;
     }
     div[data-testid="stPopover"] > button:hover {
         border-color: #339af0 !important;
         background-color: #e8f4fe !important;
     }
 
-    /* 8. 아주 좁은 화면(380px 이하)을 위한 미세 조율 */
-    @media (max-width: 380px) {
-        .weekday-header {
-            font-size: 10px;
-            padding: 2px 0px;
-        }
-        .day-num {
-            font-size: 10px;
-        }
-        div[data-testid="stPopover"] > button {
-            font-size: 8px !important;
-            padding: 1px 1px !important;
-            min-height: 16px !important;
-        }
+    /* 헤더 타이틀 및 상단 조작바 크기 축소 */
+    h1 {
+        font-size: 1.2rem !important;
+        padding: 0px !important;
+        margin-bottom: 0.2rem !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -261,7 +257,7 @@ def schedule_dialog(target_data=None):
 # ================================================================= 
 st.title("📅 Xave's Family Scheduler")
 
-# 상단 컨트롤 바
+# 상단 컨트롤 바 (높이 절약을 위해 컴팩트하게 배치)
 col_ctrl1, col_ctrl2, col_btn = st.columns([2, 2, 2])
 now_dt = datetime.now(KST)
 
@@ -273,14 +269,14 @@ with col_btn:
     if st.button("➕ 일정 추가", type="primary", use_container_width=True): 
         schedule_dialog()
 
-# 범례(Legend)
-legend_html = "<div style='font-size: 11px; margin-bottom: 6px; line-height: 1.4;'>"
+# 범례(Legend) 한 줄로 컴팩트하게 정리
+legend_html = "<div style='font-size: 10px; margin-bottom: 2px; line-height: 1.2;'>"
 legend_html += "<b>[종류]</b> "
 for cat, icon in CATEGORY_COLORS.items():
-    legend_html += f"<span style='margin-right: 6px;'>{icon}{cat}</span>"
-legend_html += "<br><b>[작성자]</b> "
+    legend_html += f"<span style='margin-right: 4px;'>{icon}{cat}</span>"
+legend_html += " <b>[작성자]</b> "
 for auth, color in AUTHOR_COLORS.items():
-    legend_html += f"<span style='margin-right: 6px; color:{color}; font-weight:bold;'>● {auth}</span>"
+    legend_html += f"<span style='margin-right: 4px; color:{color}; font-weight:bold;'>●{auth}</span>"
 legend_html += "</div>"
 st.markdown(legend_html, unsafe_allow_html=True)
 
@@ -320,14 +316,12 @@ for week in month_days:
         with day_cols[idx]:
             with st.container(border=True):
                 if day == 0:
-                    st.markdown("<div style='min-height: 40px; opacity: 0.2;'>&nbsp;</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='min-height: 25px; opacity: 0.2;'>&nbsp;</div>", unsafe_allow_html=True)
                 else:
                     is_today = (selected_year == now_dt.year and selected_month == now_dt.month and day == now_dt.day)
                     num_class = "day-num today-num" if is_today else "day-num"
                     
-                    # 스마트폰 폭을 고려해 오늘 표시를 간결하게 변경
-                    day_label = f"{day} (오늘)" if is_today else f"{day}"
-                    
+                    day_label = f"{day}★" if is_today else f"{day}"
                     st.markdown(f"<div class='{num_class}'>{day_label}</div>", unsafe_allow_html=True)
                     
                     if day in schedules_by_day:
@@ -336,7 +330,7 @@ for week in month_days:
                             auth_color = AUTHOR_COLORS.get(item['author'], '#333333')
                             time_str = item['start_time'].strftime("%H:%M")
                             
-                            # 버튼 라벨에 성함 앞글자 또는 이름만 출력하여 자리 차지 최소화
+                            # 버튼 공간 유지를 위해 최소한의 정보만 표시
                             btn_label = f"{icon}{item['author']} {time_str}"
                             
                             with st.popover(btn_label, use_container_width=True):
@@ -357,4 +351,4 @@ for week in month_days:
                                             st.success("삭제되었습니다.")
                                             st.rerun()
                     else:
-                        st.markdown("<div style='min-height: 20px;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='min-height: 12px;'></div>", unsafe_allow_html=True)
