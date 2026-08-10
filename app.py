@@ -37,7 +37,7 @@ CATEGORY_COLORS = {
 
 now_kst = datetime.now(KST)
 
-# Session State 연/월 상태 관리
+# Session State 상태 초기화 (단일 상태로 관리)
 if "curr_year" not in st.session_state:
     st.session_state.curr_year = now_kst.year
 if "curr_month" not in st.session_state:
@@ -144,29 +144,28 @@ def schedule_dialog(target_data=None):
                     st.rerun()
 
 # ================================================================= 
-# 4. 모바일 극초슬림 CSS (가로 100% 압축 고정)
+# 4. 모바일 및 가로 맞춤 CSS
 # ================================================================= 
 st.markdown("""
     <style>
-    /* 1. 전체 화면 기본 여백 완전 제거 및 가로 스크롤 차단 */
+    /* 여백 최소화 및 가로 스크롤 방지 */
     html, body, [data-testid="stAppViewContainer"] {
         overflow-x: hidden !important;
     }
     .block-container {
-        padding: 0.1rem 0.1rem !important;
+        padding: 0.2rem 0.2rem !important;
         max-width: 100% !important;
     }
     header, footer { visibility: hidden; height: 0; }
     
-    /* 2. 상단 바 가로 한 줄 고정 (Flex 꽉 채움) */
+    /* 상단 조작 바 가로 한 줄 고정 */
     div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 2px !important;
+        gap: 3px !important;
         align-items: center !important;
         width: 100% !important;
-        padding: 0 1px !important;
     }
     
     div[data-testid="column"] {
@@ -175,26 +174,26 @@ st.markdown("""
         padding: 0px !important;
     }
     
-    /* 3. 드롭다운 및 버튼 초슬림 압축 */
+    /* 드롭다운 UI 슬림화 */
     div[data-testid="stSelectbox"] {
         min-width: 0 !important;
     }
     div[data-testid="stSelectbox"] div[data-baseweb="select"] {
-        min-height: 28px !important;
-        height: 28px !important;
-        font-size: 11px !important;
-        padding-left: 1px !important;
-        padding-right: 1px !important;
+        min-height: 32px !important;
+        height: 32px !important;
+        font-size: 12px !important;
+        padding: 0px 2px !important;
     }
     div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
         padding: 0 2px !important;
     }
     
+    /* 버튼 컴팩트화 */
     button {
-        min-height: 28px !important;
-        height: 28px !important;
-        padding: 0px 1px !important;
-        font-size: 11px !important;
+        min-height: 32px !important;
+        height: 32px !important;
+        padding: 0px !important;
+        font-size: 12px !important;
         line-height: 1 !important;
         width: 100% !important;
     }
@@ -202,8 +201,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ================================================================= 
-# 5. 상단 이동 및 조작 바 (이전 / 연 / 월 / 다음 / 일정추가)
+# 5. 상단 이동 및 조작 바 (이전 / 연 / 월 / 다음 / 등록)
 # ================================================================= 
+# 이동 버튼 클릭 핸들러 (session_state 직접 변경)
 def go_prev_month():
     if st.session_state.curr_month == 1:
         st.session_state.curr_month = 12
@@ -218,28 +218,19 @@ def go_next_month():
     else:
         st.session_state.curr_month += 1
 
-def on_year_change():
-    st.session_state.curr_year = st.session_state.sb_year
-
-def on_month_change():
-    st.session_state.curr_month = st.session_state.sb_month
-
-# 모바일 화면 전체 폭에 딱 들어맞는 5분할 비율 설정
-c_prev, c_yr, c_mth, c_next, c_add = st.columns([1, 2.2, 1.8, 1, 2.2])
+# 가로 비율: [◀(0.8) | 년(2.2) | 월(1.8) | ▶(0.8) | ➕추가(2.2)]
+c_prev, c_yr, c_mth, c_next, c_add = st.columns([0.8, 2.2, 1.8, 0.8, 2.2])
 
 with c_prev:
     st.button("◀", on_click=go_prev_month, use_container_width=True)
 
 with c_yr:
-    year_list = list(range(now_kst.year - 3, now_kst.year + 4))
-    yr_index = year_list.index(st.session_state.curr_year) if st.session_state.curr_year in year_list else 3
+    year_list = list(range(now_kst.year - 5, now_kst.year + 6))
     st.selectbox(
         "Y", 
         year_list, 
-        index=yr_index,
+        key="curr_year",
         label_visibility="collapsed",
-        key="sb_year",
-        on_change=on_year_change,
         format_func=lambda x: f"{x}년"
     )
 
@@ -247,10 +238,8 @@ with c_mth:
     st.selectbox(
         "M", 
         list(range(1, 13)), 
-        index=st.session_state.curr_month - 1,
+        key="curr_month",
         label_visibility="collapsed",
-        key="sb_month",
-        on_change=on_month_change,
         format_func=lambda x: f"{x}월"
     )
 
@@ -258,14 +247,15 @@ with c_next:
     st.button("▶", on_click=go_next_month, use_container_width=True)
 
 with c_add:
-    if st.button("➕ 추가", type="primary", use_container_width=True): 
+    if st.button("➕ 등록", type="primary", use_container_width=True): 
         schedule_dialog()
+
+# 현재 선택된 년/월 추출
+curr_year = st.session_state.curr_year
+curr_month = st.session_state.curr_month
 
 # 데이터 로드
 df = load_schedules()
-
-curr_year = st.session_state.curr_year
-curr_month = st.session_state.curr_month
 
 schedules_by_day = {}
 if not df.empty:
@@ -289,25 +279,25 @@ html_code = """
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
-    margin-top: 2px;
+    margin-top: 4px;
 }
 .cal-table th {
     background-color: #f1f3f5;
-    font-size: 10px;
-    padding: 2px 0;
+    font-size: 11px;
+    padding: 3px 0;
     text-align: center;
     border: 1px solid #dee2e6;
 }
 .cal-table td {
     border: 1px solid #e9ecef;
     vertical-align: top;
-    padding: 1px;
-    height: calc((100vh - 80px) / 6);
+    padding: 2px;
+    height: calc((100vh - 90px) / 6);
     background: #ffffff;
     overflow: hidden;
 }
 .day-title {
-    font-size: 9px;
+    font-size: 10px;
     font-weight: bold;
     color: #495057;
     line-height: 1;
@@ -319,7 +309,7 @@ html_code = """
 }
 .item-text {
     display: block;
-    font-size: 8px;
+    font-size: 9px;
     line-height: 1.1;
     padding: 0px;
     margin-bottom: 1px;
@@ -372,7 +362,7 @@ for week in month_days:
 
 html_code += "</tbody></table>"
 
-# 화면 출력 (노스크롤)
+# 화면 출력
 st.html(html_code)
 
 # ================================================================= 
