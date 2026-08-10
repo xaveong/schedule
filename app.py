@@ -24,21 +24,17 @@ def init_supabase() -> Client:
 
 supabase = init_supabase() 
 TABLE_NAME = "schedule"
-
 KST = ZoneInfo("Asia/Seoul")
 
-# ================================================================= 
-# 2. 색상 및 기본 설정값 정의
-# ================================================================= 
 AUTHORS = ["Xave", "Tina", "Rosa", "Jina", "Rina"] 
 CATEGORIES = ["약속", "행사", "기타"]
 
 AUTHOR_COLORS = {
-    "Xave": "#2B59C3",   # 파랑
-    "Tina": "#9B51E0",   # 보라
-    "Rosa": "#E0519B",   # 핑크
-    "Jina": "#27AE60",   # 초록
-    "Rina": "#E67E22"    # 주황
+    "Xave": "#2B59C3",
+    "Tina": "#9B51E0",
+    "Rosa": "#E0519B",
+    "Jina": "#27AE60",
+    "Rina": "#E67E22"
 }
 
 CATEGORY_COLORS = {
@@ -48,7 +44,7 @@ CATEGORY_COLORS = {
 }
 
 # ================================================================= 
-# 3. 데이터 처리 함수 (Supabase CRUD)
+# 2. 데이터 처리 함수
 # ================================================================= 
 def load_schedules(): 
     try: 
@@ -85,113 +81,9 @@ def delete_schedule(post_id):
         return False
 
 # ================================================================= 
-# 4. UI 커스텀 CSS (한 화면 한눈에 보이도록 여백/높이 극한 최적화)
+# 3. 일정 등록/수정/상세 Modal Dialog
 # ================================================================= 
-st.markdown("""
-    <style>
-    /* 1. 상단 타이틀 및 전체 화면 패딩 극한 압축 */
-    .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 0.5rem !important;
-        padding-left: 0.2rem !important;
-        padding-right: 0.2rem !important;
-        max-width: 100% !important;
-    }
-
-    /* Streamlit 기본 divider 및 간격 줄이기 */
-    hr {
-        margin: 0.3rem 0 !important;
-    }
-
-    /* 2. 가로 7열 강제 유지를 위한 Flex 설정 */
-    [data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 1px !important;
-        width: 100% !important;
-    }
-
-    /* 3. 7개 컬럼 너비 1/7 정확히 고정 */
-    [data-testid="column"] {
-        width: calc(100% / 7) !important;
-        min-width: calc(100% / 7) !important;
-        max-width: calc(100% / 7) !important;
-        flex: 1 1 calc(100% / 7) !important;
-        padding: 0px !important;
-    }
-
-    /* 4. st.container(border=True) 내부 여백 극한으로 줄이기 */
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        padding: 1px !important;
-    }
-    div[data-testid="stVerticalBlock"] {
-        gap: 1px !important;
-    }
-
-    /* 5. 요일 헤더 */
-    .weekday-header {
-        text-align: center;
-        font-weight: bold;
-        padding: 2px 0px;
-        background-color: #f1f3f5;
-        border-radius: 2px;
-        font-size: 10px;
-        margin-bottom: 1px;
-        border: 1px solid #dee2e6;
-    }
-
-    /* 6. 날짜 숫자 스타일 */
-    .day-num {
-        font-weight: bold;
-        font-size: 10px;
-        margin-bottom: 1px;
-        color: #333;
-        line-height: 1.0;
-    }
-    .today-num {
-        color: #1c7ed6 !important;
-        font-weight: 900;
-    }
-
-    /* 7. popover 일정 버튼 슬림화 (한 줄 넘침 방지) */
-    div[data-testid="stPopover"] {
-        width: 100% !important;
-    }
-    div[data-testid="stPopover"] > button {
-        padding: 0px 1px !important;
-        font-size: 8px !important;
-        line-height: 1.1 !important;
-        min-height: 16px !important;
-        height: 16px !important;
-        margin-bottom: 1px !important;
-        width: 100% !important;
-        text-align: left !important;
-        border: 1px solid #e0e0e0 !important;
-        background-color: #ffffff !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        border-radius: 2px !important;
-    }
-    div[data-testid="stPopover"] > button:hover {
-        border-color: #339af0 !important;
-        background-color: #e8f4fe !important;
-    }
-
-    /* 헤더 타이틀 및 상단 조작바 크기 축소 */
-    h1 {
-        font-size: 1.2rem !important;
-        padding: 0px !important;
-        margin-bottom: 0.2rem !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# ================================================================= 
-# 5. UI 컴포넌트 (일정 작성/수정 Dialog)
-# ================================================================= 
-@st.dialog("일정 작성 및 수정") 
+@st.dialog("일정 상세 및 수정") 
 def schedule_dialog(target_data=None): 
     is_edit = target_data is not None 
     
@@ -253,39 +145,52 @@ def schedule_dialog(target_data=None):
                     st.rerun()
 
 # ================================================================= 
-# 6. 메인 화면 구성
+# 4. 모바일 화면 여백 다이어트 CSS
 # ================================================================= 
-st.title("📅 Xave's Family Scheduler")
+st.markdown("""
+    <style>
+    /* 화면 여백 제거 */
+    .block-container {
+        padding: 0.2rem 0.2rem !important;
+        max-width: 100% !important;
+    }
+    header, footer { visibility: hidden; height: 0; }
+    
+    /* 상단 조작바 스케일 축소 */
+    div[data-testid="stHorizontalBlock"] {
+        gap: 2px !important;
+    }
+    div[data-testid="stSelectbox"] div[data-baseweb="select"] {
+        min-height: 30px !important;
+        font-size: 11px !important;
+    }
+    button[kind="primary"] {
+        min-height: 30px !important;
+        padding: 2px 4px !important;
+        font-size: 11px !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# 상단 컨트롤 바 (높이 절약을 위해 컴팩트하게 배치)
-col_ctrl1, col_ctrl2, col_btn = st.columns([2, 2, 2])
+# ================================================================= 
+# 5. 상단 컨트롤 바
+# ================================================================= 
 now_dt = datetime.now(KST)
+c1, c2, c3 = st.columns([2, 2, 3])
 
-with col_ctrl1:
-    selected_year = st.selectbox("연도", range(now_dt.year - 2, now_dt.year + 3), index=2, label_visibility="collapsed")
-with col_ctrl2:
-    selected_month = st.selectbox("월", range(1, 13), index=now_dt.month - 1, label_visibility="collapsed")
-with col_btn:
+with c1:
+    selected_year = st.selectbox("Y", range(now_dt.year - 2, now_dt.year + 3), index=2, label_visibility="collapsed")
+with c2:
+    selected_month = st.selectbox("M", range(1, 13), index=now_dt.month - 1, label_visibility="collapsed")
+with c3:
     if st.button("➕ 일정 추가", type="primary", use_container_width=True): 
         schedule_dialog()
 
-# 범례(Legend) 한 줄로 컴팩트하게 정리
-legend_html = "<div style='font-size: 10px; margin-bottom: 2px; line-height: 1.2;'>"
-legend_html += "<b>[종류]</b> "
-for cat, icon in CATEGORY_COLORS.items():
-    legend_html += f"<span style='margin-right: 4px;'>{icon}{cat}</span>"
-legend_html += " <b>[작성자]</b> "
-for auth, color in AUTHOR_COLORS.items():
-    legend_html += f"<span style='margin-right: 4px; color:{color}; font-weight:bold;'>●{auth}</span>"
-legend_html += "</div>"
-st.markdown(legend_html, unsafe_allow_html=True)
-
-st.divider()
-
-# 데이터 로드 및 월별/일별 매핑
+# 데이터 로드
 df = load_schedules()
 
 schedules_by_day = {}
+item_by_id = {}
 if not df.empty:
     for _, row in df.iterrows():
         st_dt = row['start_time']
@@ -294,61 +199,123 @@ if not df.empty:
             if day not in schedules_by_day:
                 schedules_by_day[day] = []
             schedules_by_day[day].append(row)
+            item_by_id[str(row['id'])] = row
 
 # ================================================================= 
-# 7. 월 달력 렌더링
+# 6. 순수 HTML/Grid 기반 노스크롤 달력 렌더링
 # ================================================================= 
-
-# 요일 헤더 표시 (일요일 시작)
-weekdays = ["일", "월", "화", "수", "목", "금", "토"]
-cols = st.columns(7)
-for idx, day_name in enumerate(weekdays):
-    color = "red" if idx == 0 else ("blue" if idx == 6 else "black")
-    cols[idx].markdown(f"<div class='weekday-header' style='color:{color};'>{day_name}</div>", unsafe_allow_html=True)
-
-# 주 단위 달력 출력
 cal = calendar.Calendar(firstweekday=6)
 month_days = cal.monthdayscalendar(selected_year, selected_month)
 
+# 순수 CSS Grid 달력
+html_code = """
+<style>
+.cal-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin-top: 2px;
+}
+.cal-table th {
+    background-color: #f1f3f5;
+    font-size: 10px;
+    padding: 2px 0;
+    text-align: center;
+    border: 1px solid #dee2e6;
+}
+.cal-table td {
+    border: 1px solid #e9ecef;
+    vertical-align: top;
+    padding: 1px;
+    height: calc((100vh - 90px) / 6); /* 모바일 높이에 맞춰 자동으로 6등분 */
+    background: #ffffff;
+    overflow: hidden;
+}
+.day-title {
+    font-size: 9px;
+    font-weight: bold;
+    color: #495057;
+    line-height: 1;
+    margin-bottom: 1px;
+}
+.today-title {
+    color: #1c7ed6;
+    font-weight: 900;
+}
+.item-badge {
+    display: block;
+    font-size: 8px;
+    line-height: 1.1;
+    padding: 1px;
+    margin-bottom: 1px;
+    border-radius: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #ffffff;
+    font-weight: 500;
+}
+</style>
+
+<table class="cal-table">
+  <thead>
+    <tr>
+      <th style="color:red;">일</th>
+      <th>월</th>
+      <th>화</th>
+      <th>수</th>
+      <th>목</th>
+      <th>금</th>
+      <th style="color:blue;">토</th>
+    </tr>
+  </thead>
+  <tbody>
+"""
+
 for week in month_days:
-    day_cols = st.columns(7)
+    html_code += "<tr>"
     for idx, day in enumerate(week):
-        with day_cols[idx]:
-            with st.container(border=True):
-                if day == 0:
-                    st.markdown("<div style='min-height: 25px; opacity: 0.2;'>&nbsp;</div>", unsafe_allow_html=True)
-                else:
-                    is_today = (selected_year == now_dt.year and selected_month == now_dt.month and day == now_dt.day)
-                    num_class = "day-num today-num" if is_today else "day-num"
+        if day == 0:
+            html_code += "<td style='background:#f8f9fa;'></td>"
+        else:
+            is_today = (selected_year == now_dt.year and selected_month == now_dt.month and day == now_dt.day)
+            t_cls = "day-title today-title" if is_today else "day-title"
+            t_txt = f"{day}★" if is_today else f"{day}"
+            
+            html_code += f"<td><div class='{t_cls}'>{t_txt}</div>"
+            
+            if day in schedules_by_day:
+                for item in schedules_by_day[day]:
+                    bg_color = AUTHOR_COLORS.get(item['author'], '#495057')
+                    icon = CATEGORY_COLORS.get(item['category'], '⚪')
+                    t_str = item['start_time'].strftime("%H:%M")
                     
-                    day_label = f"{day}★" if is_today else f"{day}"
-                    st.markdown(f"<div class='{num_class}'>{day_label}</div>", unsafe_allow_html=True)
-                    
-                    if day in schedules_by_day:
-                        for item in schedules_by_day[day]:
-                            icon = CATEGORY_COLORS.get(item['category'], '⚪')
-                            auth_color = AUTHOR_COLORS.get(item['author'], '#333333')
-                            time_str = item['start_time'].strftime("%H:%M")
-                            
-                            # 버튼 공간 유지를 위해 최소한의 정보만 표시
-                            btn_label = f"{icon}{item['author']} {time_str}"
-                            
-                            with st.popover(btn_label, use_container_width=True):
-                                st.markdown("### 📌 일정 상세 정보")
-                                st.markdown(f"**종류:** {icon} {item['category']}")
-                                st.markdown(f"**작성자:** <b style='color:{auth_color};'>{item['author']}</b>", unsafe_allow_html=True)
-                                st.markdown(f"**시간:** {item['start_time'].strftime('%m/%d %H:%M')} ~ {item['end_time'].strftime('%H:%M')}")
-                                st.markdown(f"**내용:**\n{item['content']}")
-                                st.divider()
-                                
-                                c1, c2 = st.columns(2)
-                                with c1:
-                                    if st.button("✏️ 수정", key=f"edit_{item['id']}", use_container_width=True):
-                                        schedule_dialog(item)
-                                with c2:
-                                    if st.button("🗑️ 삭제", key=f"del_{item['id']}", type="secondary", use_container_width=True):
-                                        if delete_schedule(item['id']):
-                                            st.success("삭제되었습니다.")
-                                            st.rerun()
-                    else:
-                        st.markdown("<div style='min-height: 12px;'></div>", unsafe_allow_html=True)
+                    # 한 줄로 요약된 바 형태 아이템
+                    html_code += f"<div class='item-badge' style='background-color:{bg_color};'>"
+                    html_code += f"{icon}{item['author']} {t_str}"
+                    html_code += "</div>"
+            
+            html_code += "td>"
+    html_code += "</tr>"
+
+html_code += "</tbody></table>"
+
+# 화면에 통째로 렌더링 (스크롤 없음)
+st.html(html_code)
+
+# 하단 일정 검색/수정용 선택 박스 (클릭 대신 선택해서 수정)
+if not df.empty:
+    with st.expander("🔍 일정 상세 보기 / 수정 / 삭제"):
+        month_items = [f"[{row['start_time'].strftime('%m/%d %H:%M')}] {row['author']} - {row['content']}" for _, row in df.iterrows() if row['start_time'].year == selected_year and row['start_time'].month == selected_month]
+        if month_items:
+            selected_item_str = st.selectbox("일정 선택", month_items)
+            if selected_item_str:
+                # 선택된 일정 id 찾기
+                for _, row in df.iterrows():
+                    match_str = f"[{row['start_time'].strftime('%m/%d %H:%M')}] {row['author']} - {row['content']}"
+                    if match_str == selected_item_str:
+                        if st.button("✏️ 이 일정 수정 / 삭제하기", use_container_width=True):
+                            schedule_dialog(row)
+                        break
+        else:
+            st.write("이번 달에 등록된 일정이 없습니다.")
