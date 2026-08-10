@@ -29,19 +29,18 @@ KST = ZoneInfo("Asia/Seoul")
 AUTHORS = ["Xave", "Tina", "Rosa", "Jina", "Rina"] 
 CATEGORIES = ["약속", "행사", "기타"]
 
-AUTHOR_COLORS = {
-    "Xave": "#2B59C3",
-    "Tina": "#9B51E0",
-    "Rosa": "#E0519B",
-    "Jina": "#27AE60",
-    "Rina": "#E67E22"
-}
-
 CATEGORY_COLORS = {
     "약속": "🔴", 
     "행사": "🟢", 
     "기타": "🟡"  
 }
+
+# Session State를 이용한 연도/월 상태 관리 (이전/다음 버튼 작동용)
+now_kst = datetime.now(KST)
+if "curr_year" not in st.session_state:
+    st.session_state.curr_year = now_kst.year
+if "curr_month" not in st.session_state:
+    st.session_state.curr_month = now_kst.month
 
 # ================================================================= 
 # 2. 데이터 처리 함수
@@ -81,7 +80,7 @@ def delete_schedule(post_id):
         return False
 
 # ================================================================= 
-# 3. 일정 등록/수정/상세 Modal Dialog
+# 3. 일정 등록/수정 Modal Dialog
 # ================================================================= 
 @st.dialog("일정 상세 및 수정") 
 def schedule_dialog(target_data=None): 
@@ -90,7 +89,6 @@ def schedule_dialog(target_data=None):
     def_cat = target_data['category'] if is_edit else CATEGORIES[0]
     def_auth = target_data['author'] if is_edit else AUTHORS[0]
     
-    now_kst = datetime.now(KST)
     def_start_dt = target_data['start_time'].date() if is_edit else now_kst.date()
     def_start_tm = target_data['start_time'].time() if is_edit else now_kst.time()
     def_end_dt = target_data['end_time'].date() if is_edit else now_kst.date()
@@ -145,69 +143,101 @@ def schedule_dialog(target_data=None):
                     st.rerun()
 
 # ================================================================= 
-# 4. 모바일 화면 여백 다이어트 CSS
+# 4. 모바일 최적화 CSS
 # ================================================================= 
 st.markdown("""
     <style>
-    /* 화면 여백 제거 */
     .block-container {
         padding: 0.2rem 0.2rem !important;
         max-width: 100% !important;
     }
     header, footer { visibility: hidden; height: 0; }
     
-    /* 상단 조작바 스케일 축소 */
+    /* 상단 버튼/조작바 높이 축소 */
     div[data-testid="stHorizontalBlock"] {
         gap: 2px !important;
+        align-items: center !important;
     }
     div[data-testid="stSelectbox"] div[data-baseweb="select"] {
-        min-height: 30px !important;
+        min-height: 28px !important;
         font-size: 11px !important;
     }
-    button[kind="primary"] {
-        min-height: 30px !important;
-        padding: 2px 4px !important;
+    button {
+        min-height: 28px !important;
+        padding: 0px 4px !important;
         font-size: 11px !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
 # ================================================================= 
-# 5. 상단 컨트롤 바
+# 5. 상단 이동 및 조작 바 (이전 / 연·월 선택 / 다음 / 일정추가)
 # ================================================================= 
-now_dt = datetime.now(KST)
-c1, c2, c3 = st.columns([2, 2, 3])
+def prev_month():
+    if st.session_state.curr_month == 1:
+        st.session_state.curr_month = 12
+        st.session_state.curr_year -= 1
+    else:
+        st.session_state.curr_month -= 1
 
-with c1:
-    selected_year = st.selectbox("Y", range(now_dt.year - 2, now_dt.year + 3), index=2, label_visibility="collapsed")
-with c2:
-    selected_month = st.selectbox("M", range(1, 13), index=now_dt.month - 1, label_visibility="collapsed")
-with c3:
-    if st.button("➕ 일정 추가", type="primary", use_container_width=True): 
+def next_month():
+    if st.session_state.curr_month == 12:
+        st.session_state.curr_month = 1
+        st.session_state.curr_year += 1
+    else:
+        st.session_state.curr_month += 1
+
+c_prev, c_yr, c_mth, c_next, c_add = st.columns([1, 2, 1.5, 1, 2.5])
+
+with c_prev:
+    st.button("◀", on_click=prev_month, use_container_width=True)
+
+with c_yr:
+    selected_year = st.selectbox(
+        "Y", 
+        range(now_kst.year - 3, now_kst.year + 4), 
+        index=range(now_kst.year - 3, now_kst.year + 4).index(st.session_state.curr_year), 
+        label_visibility="collapsed",
+        key="year_select"
+    )
+    st.session_state.curr_year = selected_year
+
+with c_mth:
+    selected_month = st.selectbox(
+        "M", 
+        range(1, 13), 
+        index=st.session_state.curr_month - 1, 
+        label_visibility="collapsed",
+        key="month_select"
+    )
+    st.session_state.curr_month = selected_month
+
+with c_next:
+    st.button("▶", on_click=next_month, use_container_width=True)
+
+with c_add:
+    if st.button("➕ 추가", type="primary", use_container_width=True): 
         schedule_dialog()
 
 # 데이터 로드
 df = load_schedules()
 
 schedules_by_day = {}
-item_by_id = {}
 if not df.empty:
     for _, row in df.iterrows():
         st_dt = row['start_time']
-        if st_dt.year == selected_year and st_dt.month == selected_month:
+        if st_dt.year == st.session_state.curr_year and st_dt.month == st.session_state.curr_month:
             day = st_dt.day
             if day not in schedules_by_day:
                 schedules_by_day[day] = []
             schedules_by_day[day].append(row)
-            item_by_id[str(row['id'])] = row
 
 # ================================================================= 
-# 6. 순수 HTML/Grid 기반 노스크롤 달력 렌더링
+# 6. 배경색 없는 깔끔한 HTML 노스크롤 달력
 # ================================================================= 
 cal = calendar.Calendar(firstweekday=6)
-month_days = cal.monthdayscalendar(selected_year, selected_month)
+month_days = cal.monthdayscalendar(st.session_state.curr_year, st.session_state.curr_month)
 
-# 순수 CSS Grid 달력
 html_code = """
 <style>
 .cal-table {
@@ -227,7 +257,7 @@ html_code = """
     border: 1px solid #e9ecef;
     vertical-align: top;
     padding: 1px;
-    height: calc((100vh - 90px) / 6); /* 모바일 높이에 맞춰 자동으로 6등분 */
+    height: calc((100vh - 85px) / 6); /* 한 화면 분할 최적화 */
     background: #ffffff;
     overflow: hidden;
 }
@@ -236,24 +266,24 @@ html_code = """
     font-weight: bold;
     color: #495057;
     line-height: 1;
-    margin-bottom: 1px;
+    margin-bottom: 2px;
 }
 .today-title {
     color: #1c7ed6;
     font-weight: 900;
 }
-.item-badge {
+/* 배경색 제거 및 투명 깔끔 텍스트 바 */
+.item-text {
     display: block;
     font-size: 8px;
     line-height: 1.1;
-    padding: 1px;
+    padding: 0px;
     margin-bottom: 1px;
-    border-radius: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: #ffffff;
-    font-weight: 500;
+    color: #212529;
+    background: transparent;
 }
 </style>
 
@@ -278,7 +308,7 @@ for week in month_days:
         if day == 0:
             html_code += "<td style='background:#f8f9fa;'></td>"
         else:
-            is_today = (selected_year == now_dt.year and selected_month == now_dt.month and day == now_dt.day)
+            is_today = (st.session_state.curr_year == now_kst.year and st.session_state.curr_month == now_kst.month and day == now_kst.day)
             t_cls = "day-title today-title" if is_today else "day-title"
             t_txt = f"{day}★" if is_today else f"{day}"
             
@@ -286,31 +316,35 @@ for week in month_days:
             
             if day in schedules_by_day:
                 for item in schedules_by_day[day]:
-                    bg_color = AUTHOR_COLORS.get(item['author'], '#495057')
                     icon = CATEGORY_COLORS.get(item['category'], '⚪')
                     t_str = item['start_time'].strftime("%H:%M")
                     
-                    # 한 줄로 요약된 바 형태 아이템
-                    html_code += f"<div class='item-badge' style='background-color:{bg_color};'>"
-                    html_code += f"{icon}{item['author']} {t_str}"
+                    # 배경색 제거: 아이콘 + 작성자 + 시간 순서의 깔끔한 텍스트 렌더링
+                    html_code += f"<div class='item-text'>"
+                    html_code += f"{icon}<b>{item['author']}</b> {t_str}"
                     html_code += "</div>"
             
-            html_code += "td>"
+            html_code += "</td>"
     html_code += "</tr>"
 
 html_code += "</tbody></table>"
 
-# 화면에 통째로 렌더링 (스크롤 없음)
+# 화면 출력 (노스크롤)
 st.html(html_code)
 
-# 하단 일정 검색/수정용 선택 박스 (클릭 대신 선택해서 수정)
+# ================================================================= 
+# 7. 하단 일정 선택 메뉴 (수정/삭제용)
+# ================================================================= 
 if not df.empty:
     with st.expander("🔍 일정 상세 보기 / 수정 / 삭제"):
-        month_items = [f"[{row['start_time'].strftime('%m/%d %H:%M')}] {row['author']} - {row['content']}" for _, row in df.iterrows() if row['start_time'].year == selected_year and row['start_time'].month == selected_month]
+        month_items = [
+            f"[{row['start_time'].strftime('%m/%d %H:%M')}] {row['author']} - {row['content']}" 
+            for _, row in df.iterrows() 
+            if row['start_time'].year == st.session_state.curr_year and row['start_time'].month == st.session_state.curr_month
+        ]
         if month_items:
             selected_item_str = st.selectbox("일정 선택", month_items)
             if selected_item_str:
-                # 선택된 일정 id 찾기
                 for _, row in df.iterrows():
                     match_str = f"[{row['start_time'].strftime('%m/%d %H:%M')}] {row['author']} - {row['content']}"
                     if match_str == selected_item_str:
