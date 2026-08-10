@@ -37,11 +37,11 @@ CATEGORY_COLORS = {
 
 now_kst = datetime.now(KST)
 
-# Session State 상태 초기화
+# Session State 상태 초기화 (현재 시각 기준으로 기본값 설정)
 if "curr_year" not in st.session_state:
-    st.session_state.curr_year = now_kst.year
+    st.session_state["curr_year"] = now_kst.year
 if "curr_month" not in st.session_state:
-    st.session_state.curr_month = now_kst.month
+    st.session_state["curr_month"] = now_kst.month
 
 # ================================================================= 
 # 2. 데이터 처리 함수
@@ -199,14 +199,21 @@ st.markdown("""
 # ================================================================= 
 # 5. 상단 조작 바 (년 / 월 / 등록)
 # ================================================================= 
-# 비율 조정: [년도(4) | 월(3) | ➕ 등록(3)]
 c_yr, c_mth, c_add = st.columns([4, 3, 3])
 
+year_list = list(range(now_kst.year - 5, now_kst.year + 6))
+curr_yr_val = st.session_state.get("curr_year", now_kst.year)
+yr_idx = year_list.index(curr_yr_val) if curr_yr_val in year_list else 5
+
+month_list = list(range(1, 13))
+curr_mth_val = st.session_state.get("curr_month", now_kst.month)
+mth_idx = month_list.index(curr_mth_val) if curr_mth_val in month_list else (now_kst.month - 1)
+
 with c_yr:
-    year_list = list(range(now_kst.year - 5, now_kst.year + 6))
     st.selectbox(
         "Y", 
         year_list, 
+        index=yr_idx,
         key="curr_year",
         label_visibility="collapsed",
         format_func=lambda x: f"{x}년"
@@ -215,7 +222,8 @@ with c_yr:
 with c_mth:
     st.selectbox(
         "M", 
-        list(range(1, 13)), 
+        month_list, 
+        index=mth_idx,
         key="curr_month",
         label_visibility="collapsed",
         format_func=lambda x: f"{x}월"
@@ -225,7 +233,7 @@ with c_add:
     if st.button("➕ 등록", type="primary", use_container_width=True): 
         schedule_dialog()
 
-# 현재 선택된 년/월 추출
+# 선택한 년/월 적용
 curr_year = st.session_state.curr_year
 curr_month = st.session_state.curr_month
 
