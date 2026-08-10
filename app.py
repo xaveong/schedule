@@ -1,5 +1,6 @@
 import calendar
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import pandas as pd
 import streamlit as st
 from supabase import create_client, Client
@@ -23,6 +24,10 @@ def init_supabase() -> Client:
 
 supabase = init_supabase() 
 TABLE_NAME = "schedule"
+
+# 한국 표준시(KST) 타임존 객체
+# - 서버가 어느 지역에서 돌아가든(예: Streamlit Cloud는 보통 UTC) 항상 서울 시간을 기준으로 동작하게 함
+KST = ZoneInfo("Asia/Seoul")
 
 # ================================================================= 
 # 2. 색상 및 기본 설정값 정의
@@ -48,13 +53,14 @@ CATEGORY_COLORS = {
 # 3. 데이터 처리 함수 (Supabase CRUD)
 # ================================================================= 
 def load_schedules(): 
-    """DB에서 모든 일정을 가져와 pandas 데이터프레임으로 변환""" 
+    """DB에서 모든 일정을 가져와 pandas 데이터프레임으로 변환 (KST로 변환)""" 
     try: 
         response = supabase.table(TABLE_NAME).select("*").order("start_time").execute() 
         df = pd.DataFrame(response.data) 
         if not df.empty: 
-            df['start_time'] = pd.to_datetime(df['start_time'], utc=True).dt.tz_convert('Asia/Seoul') 
-            df['end_time'] = pd.to_datetime(df['end_time'], utc=True).dt.tz_convert('Asia/Seoul') 
+            # DB에는 UTC로 저장되어 있으므로, UTC로 파싱한 뒤 서울 시간대로 변환
+            df['start_time'] = pd.to_datetime(df['start_time'], utc=True).dt.tz_convert(KST) 
+            df['end_time'] = pd.to_datetime(df['end_time'], utc=True).dt.tz_convert(KST) 
         return df 
     except Exception as e: 
         st.error(f"데이터 로드 중 오류: {e}") 
@@ -85,7 +91,7 @@ def delete_schedule(post_id):
         return False
 
 # ================================================================= 
-# 4. UI 커스텀 CSS (Streamlit 순수 위젯 스타일링)
+# 4. UI 커스텀 CSS (Streamlit 순수 위젯 스타일링 + 모바일 대응)
 # ================================================================= 
 st.markdown("""
     <style>
@@ -130,10 +136,67 @@ st.markdown("""
         text-align: left !important;
         border: 1px solid #e0e0e0 !important;
         background-color: #f8f9fa !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
     }
     div[data-testid="stPopover"] > button:hover {
         border-color: #339af0 !important;
         background-color: #e8f4fe !important;
+    }
+
+    /* =========================================================
+       모바일 대응
+       Streamlit은 화면 폭이 좁아지면(대략 640px 이하) st.columns()로
+       만든 가로 배열을 자동으로 세로로 쌓아버립니다.
+       달력은 반드시 7칸이 한 줄로 유지되어야 하므로, 이를 강제로
+       막고 대신 각 셀의 폭/폰트/여백만 줄여서 좁은 화면에 맞춥니다.
+       ========================================================= */
+    @media (max-width: 640px) {
+        /* 컬럼 행이 줄바꿈되지 않도록 강제 */
+        div[data-testid="stHorizontalBlock"] {
+            flex-wrap: nowrap !important;
+            gap: 2px !important;
+        }
+        /* 각 컬럼(요일/날짜 칸) 폭을 균등하게 1/7로 고정 */
+        div[data-testid="column"] {
+            width: calc(100% / 7) !important;
+            min-width: calc(100% / 7) !important;
+            flex: 1 1 calc(100% / 7) !important;
+            padding: 1px !important;
+        }
+
+        .weekday-header {
+            font-size: 10px;
+            padding: 3px 1px;
+            margin-bottom: 3px;
+        }
+
+        .day-num {
+            font-size: 10px;
+            margin-bottom: 2px;
+        }
+
+        div[data-testid="stPopover"] > button {
+            font-size: 8px !important;
+            padding: 1px 2px !important;
+            min-height: 18px !important;
+            margin-bottom: 2px !important;
+        }
+
+        /* 상단 컨트롤 바(연도/월/버튼)도 좁은 화면에서 줄바꿈 없이 유지 */
+        div[data-testid="stHorizontalBlock"] div[data-testid="stSelectbox"] label {
+            font-size: 11px;
+        }
+    }
+
+    @media (max-width: 400px) {
+        div[data-testid="stPopover"] > button {
+            font-size: 7px !important;
+        }
+        .day-num {
+            font-size: 9px;
+        }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -148,7 +211,7 @@ def schedule_dialog(target_data=None):
     def_cat = target_data['category'] if is_edit else CATEGORIES[0]
     def_auth = target_data['author'] if is_edit else AUTHORS[0]
     
-    now_kst = datetime.now()
+    now_kst = datetime.now(KST)
     def_start_dt = target_data['start_time'].date() if is_edit else now_kst.date()
     def_start_tm = target_data['start_time'].time() if is_edit else now_kst.time()
     def_end_dt = target_data['end_time'].date() if is_edit else now_kst.date()
@@ -168,8 +231,10 @@ def schedule_dialog(target_data=None):
          
     content = st.text_area("내용", value=def_content, placeholder="일정 내용을 입력하세요")
 
-    start_time_obj = datetime.combine(start_dt, start_tm)
-    end_time_obj = datetime.combine(end_dt, end_tm)
+    # 사용자가 입력한 날짜/시간은 "서울 시간 기준"이므로, 반드시 KST 타임존을 명시적으로 붙여준다.
+    # 이렇게 해야 isoformat()에 +09:00 오프셋이 포함되어 Supabase에 정확한 UTC로 변환/저장된다.
+    start_time_obj = datetime.combine(start_dt, start_tm, tzinfo=KST)
+    end_time_obj = datetime.combine(end_dt, end_tm, tzinfo=KST)
 
     col_btn1, col_btn2 = st.columns([1, 1])
     with col_btn1:
@@ -206,7 +271,7 @@ st.title("📅 Xave's Family Scheduler")
 
 # 상단 컨트롤 바
 col_ctrl1, col_ctrl2, col_btn = st.columns([2, 2, 2])
-now_dt = datetime.now()
+now_dt = datetime.now(KST)
 
 with col_ctrl1:
     selected_year = st.selectbox("연도", range(now_dt.year - 2, now_dt.year + 3), index=2, label_visibility="collapsed")
