@@ -1,4 +1,4 @@
-```python
+
 import calendar
 from datetime import datetime, timedelta
 import html
@@ -1050,4 +1050,4 @@ if schedules_by_id:
             ):
 
                 schedule_dialog(item)
-```
+
