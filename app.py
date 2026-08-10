@@ -231,10 +231,16 @@ def schedule_dialog(target_data=None):
          
     content = st.text_area("내용", value=def_content, placeholder="일정 내용을 입력하세요")
 
-    # 사용자가 입력한 날짜/시간은 "서울 시간 기준"이므로, 반드시 KST 타임존을 명시적으로 붙여준다.
-    # 이렇게 해야 isoformat()에 +09:00 오프셋이 포함되어 Supabase에 정확한 UTC로 변환/저장된다.
-    start_time_obj = datetime.combine(start_dt, start_tm, tzinfo=KST)
-    end_time_obj = datetime.combine(end_dt, end_tm, tzinfo=KST)
+    # 사용자가 입력한 날짜/시간은 "서울 시간 기준"이다.
+    # load_schedules()가 "DB에 저장된 값 = UTC"라는 전제로 읽어오므로,
+    # 저장할 때도 똑같은 전제에 맞춰 KST -> UTC로 직접 변환한 뒤,
+    # 오프셋 없는 순수 UTC 문자열로 보낸다. (DB 컬럼이 timestamptz든 timestamp든
+    # Supabase/Postgres가 오프셋을 어떻게 해석하는지에 의존하지 않아 안전함)
+    start_time_kst = datetime.combine(start_dt, start_tm, tzinfo=KST)
+    end_time_kst = datetime.combine(end_dt, end_tm, tzinfo=KST)
+
+    start_time_obj = start_time_kst.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+    end_time_obj = end_time_kst.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
 
     col_btn1, col_btn2 = st.columns([1, 1])
     with col_btn1:
