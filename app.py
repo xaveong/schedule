@@ -35,7 +35,7 @@ CATEGORY_COLORS = {
     "기타": "🟡"  
 }
 
-# Session State를 이용한 연도/월 상태 관리 (이전/다음 버튼 작동용)
+# Session State를 통한 날짜 상태 관리
 now_kst = datetime.now(KST)
 if "curr_year" not in st.session_state:
     st.session_state.curr_year = now_kst.year
@@ -143,7 +143,7 @@ def schedule_dialog(target_data=None):
                     st.rerun()
 
 # ================================================================= 
-# 4. 모바일 최적화 CSS
+# 4. 모바일 최적화 CSS (상단 컨트롤 바 가로 1줄 강제 고정)
 # ================================================================= 
 st.markdown("""
     <style>
@@ -153,67 +153,92 @@ st.markdown("""
     }
     header, footer { visibility: hidden; height: 0; }
     
-    /* 상단 버튼/조작바 높이 축소 */
+    /* 상단 컨트롤 바 모바일 가로 1줄 강제 고정 */
     div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
         gap: 2px !important;
         align-items: center !important;
+        width: 100% !important;
     }
+    
+    /* 각 컬럼 너비 모바일 축소 조절 */
+    div[data-testid="column"] {
+        min-width: 0 !important;
+        padding: 0px !important;
+    }
+    
     div[data-testid="stSelectbox"] div[data-baseweb="select"] {
         min-height: 28px !important;
         font-size: 11px !important;
+        padding-left: 2px !important;
+        padding-right: 2px !important;
     }
+    
     button {
         min-height: 28px !important;
-        padding: 0px 4px !important;
+        height: 28px !important;
+        padding: 0px 2px !important;
         font-size: 11px !important;
+        line-height: 1 !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
 # ================================================================= 
-# 5. 상단 이동 및 조작 바 (이전 / 연·월 선택 / 다음 / 일정추가)
+# 5. 상단 이동 및 조작 바 (이전 / 연 / 월 / 다음 / 일정추가)
 # ================================================================= 
-def prev_month():
+def go_prev_month():
     if st.session_state.curr_month == 1:
         st.session_state.curr_month = 12
         st.session_state.curr_year -= 1
     else:
         st.session_state.curr_month -= 1
 
-def next_month():
+def go_next_month():
     if st.session_state.curr_month == 12:
         st.session_state.curr_month = 1
         st.session_state.curr_year += 1
     else:
         st.session_state.curr_month += 1
 
-c_prev, c_yr, c_mth, c_next, c_add = st.columns([1, 2, 1.5, 1, 2.5])
+def on_year_change():
+    st.session_state.curr_year = st.session_state.select_year_key
+
+def on_month_change():
+    st.session_state.curr_month = st.session_state.select_month_key
+
+# 모바일 가로 비율 맞춤: [이전(1) | 연도(2) | 월(1.5) | 다음(1) | 추가(2)]
+c_prev, c_yr, c_mth, c_next, c_add = st.columns([1, 2, 1.5, 1, 2])
 
 with c_prev:
-    st.button("◀", on_click=prev_month, use_container_width=True)
+    st.button("◀", on_click=go_prev_month, use_container_width=True)
 
 with c_yr:
-    selected_year = st.selectbox(
+    year_range = list(range(now_kst.year - 3, now_kst.year + 4))
+    yr_idx = year_range.index(st.session_state.curr_year) if st.session_state.curr_year in year_range else 3
+    st.selectbox(
         "Y", 
-        range(now_kst.year - 3, now_kst.year + 4), 
-        index=range(now_kst.year - 3, now_kst.year + 4).index(st.session_state.curr_year), 
+        year_range, 
+        index=yr_idx, 
         label_visibility="collapsed",
-        key="year_select"
+        key="select_year_key",
+        on_change=on_year_change
     )
-    st.session_state.curr_year = selected_year
 
 with c_mth:
-    selected_month = st.selectbox(
+    st.selectbox(
         "M", 
-        range(1, 13), 
+        list(range(1, 13)), 
         index=st.session_state.curr_month - 1, 
         label_visibility="collapsed",
-        key="month_select"
+        key="select_month_key",
+        on_change=on_month_change
     )
-    st.session_state.curr_month = selected_month
 
 with c_next:
-    st.button("▶", on_click=next_month, use_container_width=True)
+    st.button("▶", on_click=go_next_month, use_container_width=True)
 
 with c_add:
     if st.button("➕ 추가", type="primary", use_container_width=True): 
@@ -233,7 +258,7 @@ if not df.empty:
             schedules_by_day[day].append(row)
 
 # ================================================================= 
-# 6. 배경색 없는 깔끔한 HTML 노스크롤 달력
+# 6. HTML 노스크롤 달력
 # ================================================================= 
 cal = calendar.Calendar(firstweekday=6)
 month_days = cal.monthdayscalendar(st.session_state.curr_year, st.session_state.curr_month)
@@ -257,7 +282,7 @@ html_code = """
     border: 1px solid #e9ecef;
     vertical-align: top;
     padding: 1px;
-    height: calc((100vh - 85px) / 6); /* 한 화면 분할 최적화 */
+    height: calc((100vh - 85px) / 6);
     background: #ffffff;
     overflow: hidden;
 }
@@ -272,7 +297,6 @@ html_code = """
     color: #1c7ed6;
     font-weight: 900;
 }
-/* 배경색 제거 및 투명 깔끔 텍스트 바 */
 .item-text {
     display: block;
     font-size: 8px;
@@ -319,7 +343,6 @@ for week in month_days:
                     icon = CATEGORY_COLORS.get(item['category'], '⚪')
                     t_str = item['start_time'].strftime("%H:%M")
                     
-                    # 배경색 제거: 아이콘 + 작성자 + 시간 순서의 깔끔한 텍스트 렌더링
                     html_code += f"<div class='item-text'>"
                     html_code += f"{icon}<b>{item['author']}</b> {t_str}"
                     html_code += "</div>"
