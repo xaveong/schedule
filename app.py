@@ -25,8 +25,6 @@ def init_supabase() -> Client:
 supabase = init_supabase() 
 TABLE_NAME = "schedule"
 
-# 한국 표준시(KST) 타임존 객체
-# - 서버가 어느 지역에서 돌아가든(예: Streamlit Cloud는 보통 UTC) 항상 서울 시간을 기준으로 동작하게 함
 KST = ZoneInfo("Asia/Seoul")
 
 # ================================================================= 
@@ -53,12 +51,10 @@ CATEGORY_COLORS = {
 # 3. 데이터 처리 함수 (Supabase CRUD)
 # ================================================================= 
 def load_schedules(): 
-    """DB에서 모든 일정을 가져와 pandas 데이터프레임으로 변환 (KST로 변환)""" 
     try: 
         response = supabase.table(TABLE_NAME).select("*").order("start_time").execute() 
         df = pd.DataFrame(response.data) 
         if not df.empty: 
-            # DB에는 UTC로 저장되어 있으므로, UTC로 파싱한 뒤 서울 시간대로 변환
             df['start_time'] = pd.to_datetime(df['start_time'], utc=True).dt.tz_convert(KST) 
             df['end_time'] = pd.to_datetime(df['end_time'], utc=True).dt.tz_convert(KST) 
         return df 
@@ -67,7 +63,6 @@ def load_schedules():
         return pd.DataFrame()
 
 def save_schedule(data): 
-    """일정 저장 (신규 등록 또는 수정)""" 
     try: 
         if 'id' in data and data['id']: 
             post_id = data.pop('id') 
@@ -82,7 +77,6 @@ def save_schedule(data):
         return False
 
 def delete_schedule(post_id): 
-    """일정 삭제""" 
     try: 
         supabase.table(TABLE_NAME).delete().eq("id", post_id).execute() 
         return True 
@@ -91,31 +85,39 @@ def delete_schedule(post_id):
         return False
 
 # ================================================================= 
-# 4. UI 커스텀 CSS (Streamlit 순수 위젯 스타일링 + 모바일 대응)
+# 4. UI 커스텀 CSS (모바일 반응형 및 가로 스크롤 최적화)
 # ================================================================= 
 st.markdown("""
     <style>
+    /* 전체 여백 조절 */
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
+    }
+
     /* 컬럼 간격 및 레이아웃 정리 */
     [data-testid="column"] {
-        padding: 2px !important;
+        padding: 1px !important;
     }
-    
+
     /* 요일 헤더 */
     .weekday-header {
         text-align: center;
         font-weight: bold;
-        padding: 6px;
+        padding: 6px 2px;
         background-color: #f8f9fa;
         border-radius: 4px;
-        font-size: 14px;
-        margin-bottom: 6px;
+        font-size: 13px;
+        margin-bottom: 4px;
         border: 1px solid #dee2e6;
     }
 
     /* 날짜 숫자 스타일 */
     .day-num {
         font-weight: bold;
-        font-size: 13px;
+        font-size: 12px;
         margin-bottom: 4px;
         color: #333;
     }
@@ -125,84 +127,68 @@ st.markdown("""
     }
 
     /* popover (일정) 버튼 슬림화 */
+    div[data-testid="stPopover"] {
+        width: 100% !important;
+    }
     div[data-testid="stPopover"] > button {
         padding: 2px 4px !important;
         font-size: 11px !important;
         line-height: 1.2 !important;
-        min-height: 24px !important;
+        min-height: 22px !important;
         height: auto !important;
         margin-bottom: 3px !important;
         width: 100% !important;
         text-align: left !important;
         border: 1px solid #e0e0e0 !important;
-        background-color: #f8f9fa !important;
+        background-color: #ffffff !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
     div[data-testid="stPopover"] > button:hover {
         border-color: #339af0 !important;
         background-color: #e8f4fe !important;
     }
 
-    /* =========================================================
-       모바일 대응
-       Streamlit은 화면 폭이 좁아지면(대략 640px 이하) st.columns()로
-       만든 가로 배열을 자동으로 세로로 쌓아버립니다.
-       달력은 반드시 7칸이 한 줄로 유지되어야 하므로, 이를 강제로
-       막고 대신 각 셀의 폭/폰트/여백만 줄여서 좁은 화면에 맞춥니다.
-       ========================================================= */
-    @media (max-width: 640px) {
-        /* 컬럼 행이 줄바꿈되지 않도록 강제 */
-        div[data-testid="stHorizontalBlock"] {
-            flex-wrap: nowrap !important;
-            gap: 2px !important;
+    /* 
+       [모바일 대응 핵심 스타일]
+       7개 컬럼이 무너지지 않도록 달력 그리드에 최소 폭을 보장하고,
+       화면이 좁을 경우 터치가 용이하도록 가로 스크롤을 활성화합니다.
+    */
+    @media (max-width: 768px) {
+        /* 달력 전체 컨테이너 가로 스크롤 설정 */
+        .calendar-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 8px;
         }
-        /* 각 컬럼(요일/날짜 칸) 폭을 균등하게 1/7로 고정 */
-        div[data-testid="column"] {
-            width: calc(100% / 7) !important;
-            min-width: calc(100% / 7) !important;
-            flex: 1 1 calc(100% / 7) !important;
-            padding: 1px !important;
+        
+        .calendar-grid {
+            min-width: 650px; /* 모바일에서도 깨지지 않는 최소 달력 너비 */
         }
 
         .weekday-header {
-            font-size: 10px;
-            padding: 3px 1px;
-            margin-bottom: 3px;
+            font-size: 12px;
+            padding: 4px 1px;
         }
 
         .day-num {
-            font-size: 10px;
-            margin-bottom: 2px;
-        }
-
-        div[data-testid="stPopover"] > button {
-            font-size: 8px !important;
-            padding: 1px 2px !important;
-            min-height: 18px !important;
-            margin-bottom: 2px !important;
-        }
-
-        /* 상단 컨트롤 바(연도/월/버튼)도 좁은 화면에서 줄바꿈 없이 유지 */
-        div[data-testid="stHorizontalBlock"] div[data-testid="stSelectbox"] label {
             font-size: 11px;
         }
-    }
 
-    @media (max-width: 400px) {
         div[data-testid="stPopover"] > button {
-            font-size: 7px !important;
-        }
-        .day-num {
-            font-size: 9px;
+            font-size: 10px !important;
+            padding: 2px 3px !important;
+            min-height: 20px !important;
         }
     }
     </style>
 """, unsafe_allow_html=True)
 
 # ================================================================= 
-# 5. UI 컴포넌트 (일정 추가/수정 Modal Dialog)
+# 5. UI 컴포넌트 (일정 작성/수정 Dialog)
 # ================================================================= 
 @st.dialog("일정 작성 및 수정") 
 def schedule_dialog(target_data=None): 
@@ -231,11 +217,6 @@ def schedule_dialog(target_data=None):
          
     content = st.text_area("내용", value=def_content, placeholder="일정 내용을 입력하세요")
 
-    # 사용자가 입력한 날짜/시간은 "서울 시간 기준"이다.
-    # load_schedules()가 "DB에 저장된 값 = UTC"라는 전제로 읽어오므로,
-    # 저장할 때도 똑같은 전제에 맞춰 KST -> UTC로 직접 변환한 뒤,
-    # 오프셋 없는 순수 UTC 문자열로 보낸다. (DB 컬럼이 timestamptz든 timestamp든
-    # Supabase/Postgres가 오프셋을 어떻게 해석하는지에 의존하지 않아 안전함)
     start_time_kst = datetime.combine(start_dt, start_tm, tzinfo=KST)
     end_time_kst = datetime.combine(end_dt, end_tm, tzinfo=KST)
 
@@ -287,14 +268,14 @@ with col_btn:
     if st.button("➕ 일정 추가", type="primary", use_container_width=True): 
         schedule_dialog()
 
-# 범례(Legend) 표시
-legend_html = "<div style='font-size: 13px; margin-bottom: 10px; line-height: 1.8;'>"
-legend_html += "<b>[종류별 마크]</b> "
+# 범례(Legend)
+legend_html = "<div style='font-size: 12px; margin-bottom: 8px; line-height: 1.6;'>"
+legend_html += "<b>[종류]</b> "
 for cat, icon in CATEGORY_COLORS.items():
-    legend_html += f"<span style='margin-right: 12px;'>{icon} {cat}</span>"
-legend_html += "<br><b>[작성자별 색상]</b> "
+    legend_html += f"<span style='margin-right: 8px;'>{icon}{cat}</span>"
+legend_html += "<br><b>[작성자]</b> "
 for auth, color in AUTHOR_COLORS.items():
-    legend_html += f"<span style='margin-right: 12px; color:{color}; font-weight:bold;'>{auth}</span>"
+    legend_html += f"<span style='margin-right: 8px; color:{color}; font-weight:bold;'>● {auth}</span>"
 legend_html += "</div>"
 st.markdown(legend_html, unsafe_allow_html=True)
 
@@ -314,8 +295,11 @@ if not df.empty:
             schedules_by_day[day].append(row)
 
 # ================================================================= 
-# 7. 월 달력 렌더링 (순수 Streamlit Containers & Popovers)
+# 7. 월 달력 렌더링 (가로 스크롤 가능 래퍼 추가)
 # ================================================================= 
+
+# 달력 전체를 감싸는 HTML 클래스 (모바일 스크롤 지원용)
+st.markdown("<div class='calendar-wrapper'><div class='calendar-grid'>", unsafe_allow_html=True)
 
 # 요일 헤더 표시 (일요일 시작)
 weekdays = ["일", "월", "화", "수", "목", "금", "토"]
@@ -332,10 +316,9 @@ for week in month_days:
     day_cols = st.columns(7)
     for idx, day in enumerate(week):
         with day_cols[idx]:
-            # 하나의 날짜 셀을 보더가 있는 컨테이너로 독립 생성
             with st.container(border=True):
                 if day == 0:
-                    st.markdown("<div style='min-height: 80px; opacity: 0.2;'>&nbsp;</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='min-height: 65px; opacity: 0.2;'>&nbsp;</div>", unsafe_allow_html=True)
                 else:
                     is_today = (selected_year == now_dt.year and selected_month == now_dt.month and day == now_dt.day)
                     num_class = "day-num today-num" if is_today else "day-num"
@@ -343,17 +326,15 @@ for week in month_days:
                     
                     st.markdown(f"<div class='{num_class}'>{day_label}</div>", unsafe_allow_html=True)
                     
-                    # 일정이 있는 경우 해당 일자 컨테이너 내부에 팝오버 생성
                     if day in schedules_by_day:
                         for item in schedules_by_day[day]:
                             icon = CATEGORY_COLORS.get(item['category'], '⚪')
                             auth_color = AUTHOR_COLORS.get(item['author'], '#333333')
                             time_str = item['start_time'].strftime("%H:%M")
                             
-                            # 버튼 라벨 설정
+                            # 버튼 라벨에 작성자 색상 뱃지 반영
                             btn_label = f"{icon} {item['author']} {time_str}"
                             
-                            # 일정 클릭 시 popover 오픈
                             with st.popover(btn_label, use_container_width=True):
                                 st.markdown("### 📌 일정 상세 정보")
                                 st.markdown(f"**종류:** {icon} {item['category']}")
@@ -372,5 +353,7 @@ for week in month_days:
                                             st.success("삭제되었습니다.")
                                             st.rerun()
                     else:
-                        # 일정이 없는 날 최소 높이 유지
-                        st.markdown("<div style='min-height: 45px;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='min-height: 35px;'></div>", unsafe_allow_html=True)
+
+# 래퍼 태그 닫기
+st.markdown("</div></div>", unsafe_allow_html=True)
