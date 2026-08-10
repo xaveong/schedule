@@ -37,7 +37,7 @@ CATEGORY_COLORS = {
 
 now_kst = datetime.now(KST)
 
-# Session State 상태 초기화 (단일 상태로 관리)
+# Session State 상태 초기화
 if "curr_year" not in st.session_state:
     st.session_state.curr_year = now_kst.year
 if "curr_month" not in st.session_state:
@@ -163,7 +163,7 @@ st.markdown("""
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 3px !important;
+        gap: 6px !important;
         align-items: center !important;
         width: 100% !important;
     }
@@ -174,55 +174,33 @@ st.markdown("""
         padding: 0px !important;
     }
     
-    /* 드롭다운 UI 슬림화 */
+    /* 드롭다운 UI 스타일 */
     div[data-testid="stSelectbox"] {
         min-width: 0 !important;
     }
     div[data-testid="stSelectbox"] div[data-baseweb="select"] {
-        min-height: 32px !important;
-        height: 32px !important;
-        font-size: 12px !important;
-        padding: 0px 2px !important;
-    }
-    div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
-        padding: 0 2px !important;
+        min-height: 36px !important;
+        height: 36px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
     }
     
-    /* 버튼 컴팩트화 */
+    /* 버튼 스타일 */
     button {
-        min-height: 32px !important;
-        height: 32px !important;
-        padding: 0px !important;
-        font-size: 12px !important;
-        line-height: 1 !important;
+        min-height: 36px !important;
+        height: 36px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
         width: 100% !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
 # ================================================================= 
-# 5. 상단 이동 및 조작 바 (이전 / 연 / 월 / 다음 / 등록)
+# 5. 상단 조작 바 (년 / 월 / 등록)
 # ================================================================= 
-# 이동 버튼 클릭 핸들러 (session_state 직접 변경)
-def go_prev_month():
-    if st.session_state.curr_month == 1:
-        st.session_state.curr_month = 12
-        st.session_state.curr_year -= 1
-    else:
-        st.session_state.curr_month -= 1
-
-def go_next_month():
-    if st.session_state.curr_month == 12:
-        st.session_state.curr_month = 1
-        st.session_state.curr_year += 1
-    else:
-        st.session_state.curr_month += 1
-
-# 가로 비율: [◀(0.8) | 년(2.2) | 월(1.8) | ▶(0.8) | ➕추가(2.2)]
-c_prev, c_yr, c_mth, c_next, c_add = st.columns([0.8, 2.2, 1.8, 0.8, 2.2])
-
-with c_prev:
-    st.button("◀", on_click=go_prev_month, use_container_width=True)
+# 비율 조정: [년도(4) | 월(3) | ➕ 등록(3)]
+c_yr, c_mth, c_add = st.columns([4, 3, 3])
 
 with c_yr:
     year_list = list(range(now_kst.year - 5, now_kst.year + 6))
@@ -242,9 +220,6 @@ with c_mth:
         label_visibility="collapsed",
         format_func=lambda x: f"{x}월"
     )
-
-with c_next:
-    st.button("▶", on_click=go_next_month, use_container_width=True)
 
 with c_add:
     if st.button("➕ 등록", type="primary", use_container_width=True): 
