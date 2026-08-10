@@ -35,8 +35,9 @@ CATEGORY_COLORS = {
     "기타": "🟡"  
 }
 
-# Session State를 통한 날짜 상태 관리
 now_kst = datetime.now(KST)
+
+# Session State 연/월 상태 관리
 if "curr_year" not in st.session_state:
     st.session_state.curr_year = now_kst.year
 if "curr_month" not in st.session_state:
@@ -143,17 +144,21 @@ def schedule_dialog(target_data=None):
                     st.rerun()
 
 # ================================================================= 
-# 4. 모바일 최적화 CSS (상단 컨트롤 바 가로 1줄 강제 고정)
+# 4. 모바일 극초슬림 CSS (가로 100% 압축 고정)
 # ================================================================= 
 st.markdown("""
     <style>
+    /* 1. 전체 화면 기본 여백 완전 제거 및 가로 스크롤 차단 */
+    html, body, [data-testid="stAppViewContainer"] {
+        overflow-x: hidden !important;
+    }
     .block-container {
-        padding: 0.2rem 0.2rem !important;
+        padding: 0.1rem 0.1rem !important;
         max-width: 100% !important;
     }
     header, footer { visibility: hidden; height: 0; }
     
-    /* 상단 컨트롤 바 모바일 가로 1줄 강제 고정 */
+    /* 2. 상단 바 가로 한 줄 고정 (Flex 꽉 채움) */
     div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -161,27 +166,37 @@ st.markdown("""
         gap: 2px !important;
         align-items: center !important;
         width: 100% !important;
+        padding: 0 1px !important;
     }
     
-    /* 각 컬럼 너비 모바일 축소 조절 */
     div[data-testid="column"] {
         min-width: 0 !important;
+        flex: 1 1 auto !important;
         padding: 0px !important;
     }
     
+    /* 3. 드롭다운 및 버튼 초슬림 압축 */
+    div[data-testid="stSelectbox"] {
+        min-width: 0 !important;
+    }
     div[data-testid="stSelectbox"] div[data-baseweb="select"] {
         min-height: 28px !important;
+        height: 28px !important;
         font-size: 11px !important;
-        padding-left: 2px !important;
-        padding-right: 2px !important;
+        padding-left: 1px !important;
+        padding-right: 1px !important;
+    }
+    div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
+        padding: 0 2px !important;
     }
     
     button {
         min-height: 28px !important;
         height: 28px !important;
-        padding: 0px 2px !important;
+        padding: 0px 1px !important;
         font-size: 11px !important;
         line-height: 1 !important;
+        width: 100% !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -204,37 +219,39 @@ def go_next_month():
         st.session_state.curr_month += 1
 
 def on_year_change():
-    st.session_state.curr_year = st.session_state.select_year_key
+    st.session_state.curr_year = st.session_state.sb_year
 
 def on_month_change():
-    st.session_state.curr_month = st.session_state.select_month_key
+    st.session_state.curr_month = st.session_state.sb_month
 
-# 모바일 가로 비율 맞춤: [이전(1) | 연도(2) | 월(1.5) | 다음(1) | 추가(2)]
-c_prev, c_yr, c_mth, c_next, c_add = st.columns([1, 2, 1.5, 1, 2])
+# 모바일 화면 전체 폭에 딱 들어맞는 5분할 비율 설정
+c_prev, c_yr, c_mth, c_next, c_add = st.columns([1, 2.2, 1.8, 1, 2.2])
 
 with c_prev:
     st.button("◀", on_click=go_prev_month, use_container_width=True)
 
 with c_yr:
-    year_range = list(range(now_kst.year - 3, now_kst.year + 4))
-    yr_idx = year_range.index(st.session_state.curr_year) if st.session_state.curr_year in year_range else 3
+    year_list = list(range(now_kst.year - 3, now_kst.year + 4))
+    yr_index = year_list.index(st.session_state.curr_year) if st.session_state.curr_year in year_list else 3
     st.selectbox(
         "Y", 
-        year_range, 
-        index=yr_idx, 
+        year_list, 
+        index=yr_index,
         label_visibility="collapsed",
-        key="select_year_key",
-        on_change=on_year_change
+        key="sb_year",
+        on_change=on_year_change,
+        format_func=lambda x: f"{x}년"
     )
 
 with c_mth:
     st.selectbox(
         "M", 
         list(range(1, 13)), 
-        index=st.session_state.curr_month - 1, 
+        index=st.session_state.curr_month - 1,
         label_visibility="collapsed",
-        key="select_month_key",
-        on_change=on_month_change
+        key="sb_month",
+        on_change=on_month_change,
+        format_func=lambda x: f"{x}월"
     )
 
 with c_next:
@@ -247,11 +264,14 @@ with c_add:
 # 데이터 로드
 df = load_schedules()
 
+curr_year = st.session_state.curr_year
+curr_month = st.session_state.curr_month
+
 schedules_by_day = {}
 if not df.empty:
     for _, row in df.iterrows():
         st_dt = row['start_time']
-        if st_dt.year == st.session_state.curr_year and st_dt.month == st.session_state.curr_month:
+        if st_dt.year == curr_year and st_dt.month == curr_month:
             day = st_dt.day
             if day not in schedules_by_day:
                 schedules_by_day[day] = []
@@ -261,7 +281,7 @@ if not df.empty:
 # 6. HTML 노스크롤 달력
 # ================================================================= 
 cal = calendar.Calendar(firstweekday=6)
-month_days = cal.monthdayscalendar(st.session_state.curr_year, st.session_state.curr_month)
+month_days = cal.monthdayscalendar(curr_year, curr_month)
 
 html_code = """
 <style>
@@ -282,7 +302,7 @@ html_code = """
     border: 1px solid #e9ecef;
     vertical-align: top;
     padding: 1px;
-    height: calc((100vh - 85px) / 6);
+    height: calc((100vh - 80px) / 6);
     background: #ffffff;
     overflow: hidden;
 }
@@ -332,7 +352,7 @@ for week in month_days:
         if day == 0:
             html_code += "<td style='background:#f8f9fa;'></td>"
         else:
-            is_today = (st.session_state.curr_year == now_kst.year and st.session_state.curr_month == now_kst.month and day == now_kst.day)
+            is_today = (curr_year == now_kst.year and curr_month == now_kst.month and day == now_kst.day)
             t_cls = "day-title today-title" if is_today else "day-title"
             t_txt = f"{day}★" if is_today else f"{day}"
             
@@ -363,7 +383,7 @@ if not df.empty:
         month_items = [
             f"[{row['start_time'].strftime('%m/%d %H:%M')}] {row['author']} - {row['content']}" 
             for _, row in df.iterrows() 
-            if row['start_time'].year == st.session_state.curr_year and row['start_time'].month == st.session_state.curr_month
+            if row['start_time'].year == curr_year and row['start_time'].month == curr_month
         ]
         if month_items:
             selected_item_str = st.selectbox("일정 선택", month_items)
