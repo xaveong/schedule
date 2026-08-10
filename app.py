@@ -30,7 +30,7 @@ TABLE_NAME = "schedule"
 AUTHORS = ["Xave", "Tina", "Rosa", "Jina", "Rina"] 
 CATEGORIES = ["약속", "행사", "기타"]
 
-# 작성자별 폰트/텍스트 색상
+# 작성자별 색상 맵
 AUTHOR_COLORS = {
     "Xave": "#2B59C3",   # 파랑
     "Tina": "#9B51E0",   # 보라
@@ -39,11 +39,11 @@ AUTHOR_COLORS = {
     "Rina": "#E67E22"    # 주황
 }
 
-# 일정 종류(카테고리)별 원형 뱃지 색상
+# 일정 종류(카테고리)별 색상
 CATEGORY_COLORS = {
-    "약속": "#FF4D4D",   # 빨강
-    "행사": "#20B2AA",   # 청록
-    "기타": "#FFC107"    # 노랑
+    "약속": "🔴",   # 빨강
+    "행사": "🟢",   # 청록/초록
+    "기타": "🟡"    # 노랑
 }
 
 # ================================================================= 
@@ -55,7 +55,7 @@ def load_schedules():
         response = supabase.table(TABLE_NAME).select("*").order("start_time").execute() 
         df = pd.DataFrame(response.data) 
         if not df.empty: 
-            # UTC 기준 시간 파싱 후 한국 시간(Asia/Seoul)으로 변환
+            # UTC 시간 파싱 후 한국 시간(Asia/Seoul)으로 변환
             df['start_time'] = pd.to_datetime(df['start_time'], utc=True).dt.tz_convert('Asia/Seoul') 
             df['end_time'] = pd.to_datetime(df['end_time'], utc=True).dt.tz_convert('Asia/Seoul') 
         return df 
@@ -88,85 +88,67 @@ def delete_schedule(post_id):
         return False
 
 # ================================================================= 
-# 4. UI 커스텀 CSS (달력 그리드, 동그라미 뱃지, 작성자 색상)
+# 4. UI 커스텀 CSS (달력 그리드 최적화)
 # ================================================================= 
 st.markdown("""
     <style>
-    /* 전체 달력 컨테이너 (모바일 가로 스크롤 지원) */
-    .calendar-container {
-        width: 100%;
-        overflow-x: auto;
-        margin-top: 10px;
-        margin-bottom: 25px;
-    }
-    .calendar-table {
-        width: 100%;
-        min-width: 700px; /* 모바일에서 찌그러지지 않도록 최소 너비 지정 */
-        border-collapse: collapse;
-        table-layout: fixed;
-    }
-    .calendar-table th {
-        background-color: #f8f9fa;
-        text-align: center;
-        padding: 8px 4px;
-        font-size: 14px;
-        font-weight: 600;
-        border: 1px solid #e9ecef;
-        color: #495057;
-    }
-    .calendar-table td {
-        border: 1px solid #e9ecef;
-        vertical-align: top;
-        padding: 6px 4px;
-        height: 110px;
-        width: 14.28%;
-        background-color: #ffffff;
-    }
-    .date-num {
-        font-weight: 700;
-        font-size: 13px;
-        margin-bottom: 6px;
-        color: #343a40;
-    }
-    .today {
-        background-color: #e8f4fe !important;
-    }
-    .other-month {
-        background-color: #f8f9fa;
-        opacity: 0.4;
+    /* Streamlit 컬럼 간격 줄이기 */
+    [data-testid="column"] {
+        padding: 2px !important;
     }
     
-    /* 하루 내부 일정 아이템 스타일 (줄바꿈 구분) */
-    .schedule-item {
-        font-size: 11px;
-        line-height: 1.4;
-        margin-bottom: 4px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        padding: 1px 2px;
-        border-radius: 3px;
+    /* 날짜 셀 스타일 */
+    .day-box {
+        border: 1px solid #e9ecef;
+        border-radius: 5px;
+        min-height: 110px;
+        padding: 4px;
+        background-color: #ffffff;
     }
-    /* 일정 종류 원 모양 마크 */
-    .circle-badge {
-        display: inline-block;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        margin-right: 4px;
-        vertical-align: middle;
+    .today-box {
+        border: 2px solid #339af0 !important;
+        background-color: #e8f4fe !important;
+    }
+    .day-header {
+        font-weight: bold;
+        font-size: 13px;
+        margin-bottom: 4px;
+        color: #333;
+    }
+    
+    /* 요일 헤더 */
+    .weekday-header {
+        text-align: center;
+        font-weight: bold;
+        padding: 6px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        font-size: 14px;
+        margin-bottom: 4px;
+    }
+    
+    /* popover 버튼 스타일 슬림화 */
+    div[data-testid="stPopover"] > button {
+        padding: 1px 4px !important;
+        font-size: 11px !important;
+        line-height: 1.2 !important;
+        min-height: unset !important;
+        height: auto !important;
+        margin-bottom: 2px !important;
+        width: 100% !important;
+        text-align: left !important;
+        border: 1px solid #e0e0e0 !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
 # ================================================================= 
-# 5. UI 컴포넌트 (일정 입력 및 수정 대화상자)
+# 5. UI 컴포넌트 (일정 입력/수정 Dialog)
 # ================================================================= 
 @st.dialog("일정 작성 및 수정") 
 def schedule_dialog(target_data=None): 
     is_edit = target_data is not None 
     
-    # 기본값 설정
     def_cat = target_data['category'] if is_edit else CATEGORIES[0]
     def_auth = target_data['author'] if is_edit else AUTHORS[0]
     
@@ -177,9 +159,8 @@ def schedule_dialog(target_data=None):
     def_end_tm = target_data['end_time'].time() if is_edit else (now_kst + timedelta(hours=1)).time()
     def_content = target_data['content'] if is_edit else ""
 
-    # 입력 폼 UI
-    category = st.selectbox("일정 종류 (원형 마크 색상)", CATEGORIES, index=CATEGORIES.index(def_cat) if def_cat in CATEGORIES else 0) 
-    author = st.selectbox("작성자 (폰트 색상)", AUTHORS, index=AUTHORS.index(def_auth) if def_auth in AUTHORS else 0) 
+    category = st.selectbox("일정 종류", CATEGORIES, index=CATEGORIES.index(def_cat) if def_cat in CATEGORIES else 0) 
+    author = st.selectbox("작성자", AUTHORS, index=AUTHORS.index(def_auth) if def_auth in AUTHORS else 0) 
      
     col1, col2 = st.columns(2) 
     with col1: 
@@ -189,15 +170,14 @@ def schedule_dialog(target_data=None):
         end_dt = st.date_input("종료일", def_end_dt) 
         end_tm = st.time_input("종료 시간", def_end_tm) 
          
-    content = st.text_area("내용", value=def_content, placeholder="일정 내용을 상세히 입력하세요")
+    content = st.text_area("내용", value=def_content, placeholder="일정 내용을 입력하세요")
 
-    # DB 저장을 위한 ISO 문자열 조합
     start_time_obj = datetime.combine(start_dt, start_tm)
     end_time_obj = datetime.combine(end_dt, end_tm)
 
     col_btn1, col_btn2 = st.columns([1, 1])
     with col_btn1:
-        if st.button("💾 저장하기", type="primary", use_container_width=True): 
+        if st.button("💾 저장", type="primary", use_container_width=True): 
             if not content.strip():
                 st.error("내용을 입력해주세요.")
                 return
@@ -218,17 +198,17 @@ def schedule_dialog(target_data=None):
 
     with col_btn2:
         if is_edit:
-            if st.button("🗑️ 삭제하기", type="secondary", use_container_width=True):
+            if st.button("🗑️ 삭제", type="secondary", use_container_width=True):
                 if delete_schedule(target_data['id']):
                     st.success("삭제되었습니다!")
                     st.rerun()
 
 # ================================================================= 
-# 6. 메인 화면 구성 및 달력 렌더링
+# 6. 메인 화면 구성
 # ================================================================= 
 st.title("📅 Xave's Family Scheduler")
 
-# 상단 컨트롤 바
+# 상단 컨트롤 바 (연/월 선택 & 추가 버튼)
 col_ctrl1, col_ctrl2, col_btn = st.columns([2, 2, 2])
 now_dt = datetime.now()
 
@@ -241,10 +221,10 @@ with col_btn:
         schedule_dialog()
 
 # 범례(Legend) 표시
-legend_html = "<div style='font-size: 12px; margin-bottom: 10px; line-height: 1.8;'>"
-legend_html += "<b>[종류별 범례]</b> "
-for cat, color in CATEGORY_COLORS.items():
-    legend_html += f"<span style='margin-right: 12px;'><span class='circle-badge' style='background-color:{color};'></span>{cat}</span>"
+legend_html = "<div style='font-size: 13px; margin-bottom: 10px; line-height: 1.8;'>"
+legend_html += "<b>[종류별 마크]</b> "
+for cat, icon in CATEGORY_COLORS.items():
+    legend_html += f"<span style='margin-right: 12px;'>{icon} {cat}</span>"
 legend_html += "<br><b>[작성자별 색상]</b> "
 for auth, color in AUTHOR_COLORS.items():
     legend_html += f"<span style='margin-right: 12px; color:{color}; font-weight:bold;'>{auth}</span>"
@@ -256,15 +236,10 @@ st.divider()
 # 데이터 로드
 df = load_schedules()
 
-# 달력 생성 로직 (일요일 시작)
-cal = calendar.Calendar(firstweekday=6)
-month_days = cal.monthdayscalendar(selected_year, selected_month)
-
 # 해당 월의 일정 데이터 필터링 및 날짜별 매핑
 schedules_by_day = {}
 if not df.empty:
     for _, row in df.iterrows():
-        # 시작일 기준 등록
         st_dt = row['start_time']
         if st_dt.year == selected_year and st_dt.month == selected_month:
             day = st_dt.day
@@ -272,84 +247,62 @@ if not df.empty:
                 schedules_by_day[day] = []
             schedules_by_day[day].append(row)
 
-# HTML 달력 그리드 조합
-html_code = '<div class="calendar-container">'
-html_code += '<table class="calendar-table">'
-html_code += '<thead><tr><th style="color:red;">일</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th style="color:blue;">토</th></tr></thead>'
-html_code += '<tbody>'
+# ================================================================= 
+# 7. 월 달력 렌더링 (Streamlit Grid Layout)
+# ================================================================= 
+
+# 요일 헤더 표시 (일요일 시작)
+weekdays = ["일", "월", "화", "수", "목", "금", "토"]
+cols = st.columns(7)
+for idx, day_name in enumerate(weekdays):
+    color = "red" if idx == 0 else ("blue" if idx == 6 else "black")
+    cols[idx].markdown(f"<div class='weekday-header' style='color:{color};'>{day_name}</div>", unsafe_allow_html=True)
+
+# 달력 주(Week) 및 일(Day) 생성
+cal = calendar.Calendar(firstweekday=6)
+month_days = cal.monthdayscalendar(selected_year, selected_month)
 
 for week in month_days:
-    html_code += '<tr>'
-    for day in week:
-        if day == 0:
-            html_code += '<td class="other-month"></td>'
-        else:
-            is_today = (selected_year == now_dt.year and selected_month == now_dt.month and day == now_dt.day)
-            td_class = 'today' if is_today else ''
-            
-            html_code += f'<td class="{td_class}">'
-            html_code += f'<div class="date-num">{day}</div>'
-            
-            # 날짜에 해당하는 일정 루프 출력
-            if day in schedules_by_day:
-                for item in schedules_by_day[day]:
-                    cat_color = CATEGORY_COLORS.get(item['category'], '#888888')
-                    auth_color = AUTHOR_COLORS.get(item['author'], '#333333')
-                    time_str = item['start_time'].strftime("%H:%M")
-                    
-                    # 원형 뱃지(종류) + 작성자/시간/내용 (작성자 글자색)
-                    html_code += f'''
-                    <div class="schedule-item" title="{item['author']} | {item['content']}">
-                        <span class="circle-badge" style="background-color: {cat_color};"></span>
-                        <span style="color: {auth_color}; font-weight: 600;">
-                            [{item['author']}] {time_str} {item['content']}
-                        </span>
-                    </div>
-                    '''
-            html_code += '</td>'
-    html_code += '</tr>'
-
-html_code += '</tbody></table></div>'
-
-# HTML 달력 렌더링
-st.markdown(html_code, unsafe_allow_html=True)
-
-# ================================================================= 
-# 7. 하단 상세 리스트 및 수정/삭제 뷰er
-# ================================================================= 
-st.subheader(f"📋 {selected_year}년 {selected_month}월 상세 일정 목록")
-
-if not df.empty:
-    # 선택된 연/월에 해당하는 전체 일정 필터링
-    month_start = datetime(selected_year, selected_month, 1, tzinfo=timezone.utc)
-    # 다음 달 1일 계산
-    if selected_month == 12:
-        month_end = datetime(selected_year + 1, 1, 1, tzinfo=timezone.utc)
-    else:
-        month_end = datetime(selected_year, selected_month + 1, 1, tzinfo=timezone.utc)
-        
-    filtered_df = df[(df['start_time'] >= month_start) & (df['start_time'] < month_end)]
-    
-    if not filtered_df.empty:
-        for _, row in filtered_df.iterrows():
-            with st.container():
-                col_info, col_btn_edit = st.columns([8, 2])
+    day_cols = st.columns(7)
+    for idx, day in enumerate(week):
+        with day_cols[idx]:
+            if day == 0:
+                # 해당 월에 속하지 않는 날짜 셀
+                st.markdown("<div class='day-box' style='background-color:#f8f9fa; opacity:0.3;'></div>", unsafe_allow_html=True)
+            else:
+                is_today = (selected_year == now_dt.year and selected_month == now_dt.month and day == now_dt.day)
+                box_class = "day-box today-box" if is_today else "day-box"
                 
-                cat_color = CATEGORY_COLORS.get(row['category'], '#888888')
-                auth_color = AUTHOR_COLORS.get(row['author'], '#333333')
-                time_range = f"{row['start_time'].strftime('%m/%d %H:%M')} ~ {row['end_time'].strftime('%m/%d %H:%M')}"
+                # 날짜 헤더
+                st.markdown(f"<div class='{box_class}'><div class='day-header'>{day}</div>", unsafe_allow_html=True)
                 
-                with col_info:
-                    st.markdown(
-                        f"<span class='circle-badge' style='background-color: {cat_color};'></span>"
-                        f"<b style='color:{auth_color};'>[{row['author']}]</b> {row['content']} "
-                        f"<small style='color:gray;'>({time_range})</small>",
-                        unsafe_allow_html=True
-                    )
-                with col_btn_edit:
-                    if st.button("✏️ 상세/수정", key=f"edit_btn_{row['id']}", use_container_width=True):
-                        schedule_dialog(row)
-    else:
-        st.info("이번 달 등록된 일정이 없습니다.")
-else:
-    st.info("일정이 없습니다. 상단의 버튼을 눌러 일정을 추가하세요!")
+                # 일정이 있는 경우 출력
+                if day in schedules_by_day:
+                    for item in schedules_by_day[day]:
+                        icon = CATEGORY_COLORS.get(item['category'], '⚪')
+                        auth_color = AUTHOR_COLORS.get(item['author'], '#333333')
+                        time_str = item['start_time'].strftime("%H:%M")
+                        
+                        # 클릭 시 수정/삭제 팝업을 띄우는 Popover 생성
+                        btn_label = f"{icon} {item['author']} {time_str}"
+                        
+                        # 작성자 이름에 작성자별 색상을 적용한 팝업 버튼
+                        with st.popover(btn_label, use_container_width=True):
+                            st.markdown(f"### 📌 일정 상세 정보")
+                            st.markdown(f"**종류:** {icon} {item['category']}")
+                            st.markdown(f"**작성자:** <b style='color:{auth_color};'>{item['author']}</b>", unsafe_allow_html=True)
+                            st.markdown(f"**시간:** {item['start_time'].strftime('%m/%d %H:%M')} ~ {item['end_time'].strftime('%H:%M')}")
+                            st.markdown(f"**내용:**\n{item['content']}")
+                            st.divider()
+                            
+                            c1, c2 = st.columns(2)
+                            with c1:
+                                if st.button("✏️ 수정", key=f"pop_edit_{item['id']}", use_container_width=True):
+                                    schedule_dialog(item)
+                            with c2:
+                                if st.button("🗑️ 삭제", key=f"pop_del_{item['id']}", type="secondary", use_container_width=True):
+                                    if delete_schedule(item['id']):
+                                        st.success("삭제되었습니다.")
+                                        st.rerun()
+
+                st.markdown("</div>", unsafe_allow_html=True)
