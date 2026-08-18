@@ -27,7 +27,7 @@ TABLE_NAME = "schedule"
 KST = ZoneInfo("Asia/Seoul")
 
 AUTHORS = ["Xave", "Tina", "Rosa", "Jina", "Rina"]   
-CATEGORIES = ["약속", "행사", "기타"]
+CATEGORIES = ["약속", "행사", "여행", "기타"]
 
 AUTHOR_COLORS = {  
     "Xave": "#2B59C3",  
@@ -38,11 +38,12 @@ AUTHOR_COLORS = {
 }
 
 CATEGORY_COLORS = {  
-    "약속": "🔴",   
-    "행사": "🟢",   
-    "여행": "🔵",
-    "기타": "🟡" 
-}
+    "약속": "🤝",   
+    "행사": "🎉",   
+    "여행": "✈️",  
+    "기타": "📌"    
+} 
+
 
 # =================================================================   
 # 2. 데이터 처리 함수  
