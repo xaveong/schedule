@@ -325,12 +325,9 @@ for week in month_days:
             t_cls = "day-title today-title" if is_today else "day-title"  
             t_txt = f"{day}★" if is_today else f"{day}"  
               
-            html_code += f"<td><div class='{t_cls}'>{t_txt}</div>"  
+            html_code += f"<td><div class='{t_cls}'>{t_txt}</div>" # </div> 닫는 태그 수정  
               
-            if day in schedules_//_day: # 오타 수정  
-                pass # 아래에서 처리  
-              
-            # schedules_by_day[day]가 있는 경우 루프  
+            # [수정 포인트] 잘못된 주석과 변수명을 삭제하고 정상적으로 작성  
             if day in schedules_by_day:  
                 for item in schedules_by_day[day]:  
                     bg_color = AUTHOR_COLORS.get(item['author'], '#495057')  
@@ -339,10 +336,10 @@ for week in month_days:
                       
                     html_code += f"<div class='item-badge' style='background-color:{bg_color};'>"  
                     html_code += f"{icon}{item['author']} {t_str}"  
-                    html_code += "</div>"  
+                    html_code += "</div>" # </div> 닫는 태그 수정  
               
-            html_code += "</td>"  
-    html_code += "</tr>"
+            html_code += "</td>" # </td> 닫는 태그 수정  
+    html_code += "</tr>"  
 
 html_code += "</tbody></table></div>" # 래퍼 닫기
 
