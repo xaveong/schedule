@@ -172,9 +172,9 @@ st.markdown("""
         font-size: 11px !important;  
     }  
       
-    /* [개선] 달력을 감싸는 컨테이너: 가로 80%, 중앙 정렬 */  
+    /* [개선] 달력을 감싸는 컨테이너: 가로 98%, 중앙 정렬 */  
     .calendar-wrapper {  
-        width: 80%;  
+        width: 98%;  
         margin: 0 auto;  
         display: block;  
     }  
