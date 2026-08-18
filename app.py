@@ -261,7 +261,7 @@ html_code = """
 }  
 .cal-table th {  
     background-color: #f1f3f5;  
-    font-size: 10px;  
+    font-size: 12px;  
     padding: 2px 0;  
     text-align: center;  
     border: 1px solid #dee2e6;  
@@ -275,7 +275,7 @@ html_code = """
     overflow: hidden;  
 }  
 .day-title {  
-    font-size: 9px;  
+    font-size: 12px;  
     font-weight: bold;  
     color: #495057;  
     line-height: 1;  
@@ -287,7 +287,7 @@ html_code = """
 }  
 .item-badge {  
     display: block;  
-    font-size: 8px;  
+    font-size: 12px;  
     line-height: 1.1;  
     padding: 1px;  
     margin-bottom: 1px;  
@@ -306,11 +306,11 @@ html_code = """
   <thead>  
     <tr>  
       <th style="color:red;">일</th>  
-      <th>월</th>  
-      <th>화</th>  
-      <th>수</th>  
-      <th>목</th>  
-      <th>금</th>  
+      <th style="color:black;">월</th>  
+      <th style="color:black;">화</th>  
+      <th style="color:black;">수</th>  
+      <th style="color:black;">목</th>  
+      <th style="color:black;">금</th>  
       <th style="color:blue;">토</th>  
     </tr>  
   </thead>  
