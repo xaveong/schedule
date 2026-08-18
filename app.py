@@ -229,21 +229,33 @@ if not df.empty:
               
         item_by_id[str(row['id'])] = row
 
-# 일정 검색/수정용 선택 박스  
+# 일정 검색/수정용 선택 박스 (최근 일정이 위로 오도록 수정)  
 if not df.empty:  
     with st.expander("🔍 일정 상세 보기 / 수정 / 삭제"):  
-        month_items = [f"[{row['start_time'].strftime('%m/%d %H:%M')}] {row['author']} - {row['content']}" for _, row in df.iterrows() if row['start_time'].year == selected_year and row['start_time'].month == selected_month]  
-        if month_items:  
+        # 1. 이번 달 데이터만 필터링  
+        month_df = df[(df['start_time'].dt.year == selected_year) &   
+                      (df['start_time'].dt.month == selected_month)].copy()  
+          
+        if not month_df.empty:  
+            # 2. [핵심] 시작 시간 기준 내림차순 정렬 (최신순)  
+            month_df = month_df.sort_values(by='start_time', ascending=False)  
+              
+            # 3. 정렬된 순서대로 리스트 생성  
+            month_items = [f"[{row['start_time'].strftime('%m/%d %H:%M')}] {row['author']} - {row['content']}"   
+                           for _, row in month_df.iterrows()]  
+              
             selected_item_str = st.selectbox("일정 선택", month_items)  
+              
             if selected_item_str:  
-                for _, row in df.iterrows():  
+                # 선택된 일정 id 찾기 (month_df에서 찾으므로 더 빠름)  
+                for _, row in month_df.iterrows():  
                     match_str = f"[{row['start_time'].strftime('%m/%d %H:%M')}] {row['author']} - {row['content']}"  
                     if match_str == selected_item_str:  
                         if st.button("✏️ 이 일정 수정 / 삭제하기", use_container_width=True):  
                             schedule_dialog(row)  
                         break  
         else:  
-            st.write("이번 달에 등록된 일정이 없습니다.")                        
+            st.write("이번 달에 등록된 일정이 없습니다.")                    
 
 # =================================================================   
 # 6. 순수 HTML/Grid 기반 노스크롤 달력 렌더링  
